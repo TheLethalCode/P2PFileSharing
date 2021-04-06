@@ -60,17 +60,14 @@ def receive(socket) -> dict:
     
 
 def _get_socket(ip) -> socket:
-    """[summary]
+    """Get socket to the provided IP.
 
     Args:
-        ip ([type]): [description]
+        ip (str): IP to connect socket to.
 
     Returns:
-        socket: [description]
+        socket: Socket to the IP.
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    socket.bind(ip, PORT)
-    socket.timeout(10.0)
-    socket.listen(1)
-    return socket
+    sock.connect(ip, PORT)
+    return sock
