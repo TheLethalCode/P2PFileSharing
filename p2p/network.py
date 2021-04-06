@@ -1,8 +1,10 @@
 import json
-from json.decoder import JSONDecodeError
-from p2p.constants import ENCODING, EOM_CHAR, PORT
 import socket
 import time
+from json.decoder import JSONDecodeError
+
+from p2p.constants import ENCODING, EOM_CHAR, PORT
+
 
 def send(ip, **data) -> bool:
     """Send data to IP (default PORT) with EOM_CHAR at the end.
@@ -20,10 +22,11 @@ def send(ip, **data) -> bool:
         data = data.encode(ENCODING) + EOM_CHAR
         socket = _get_socket(ip)
         socket.sendall(data)
+        return True
     except (ValueError, TypeError, Exception) as err:
         print(f'ERROR: {err}')
         return False
-    
+
 
 def receive(socket) -> dict:
     """Receive data from socket until EOM_CHAR.
@@ -37,16 +40,16 @@ def receive(socket) -> dict:
     # timeout after 10 seconds if no data received
     socket.settimeout(10.0)
     buff = b''
-    
+
     while True:
         temp = b''
         temp = socket.recv(4096)
-        
+
         if temp != b'':
             buff += temp
             end = buff.find(EOM_CHAR)
-            
-            if end>0:
+
+            if end > 0:
                 try:
                     buff = buff[:end]
                     buff = buff.decode(ENCODING)
@@ -57,7 +60,6 @@ def receive(socket) -> dict:
                     return {}
         time.sleep(0.01)
 
-    
 
 def _get_socket(ip) -> socket:
     """Get socket to the provided IP.
