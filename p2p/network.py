@@ -3,7 +3,7 @@ import socket
 import time
 from json.decoder import JSONDecodeError
 
-from p2p.constants import ENCODING, EOM_CHAR, PORT
+from p2p.constants import CHUNK_SIZE, ENCODING, EOM_CHAR, PORT, SOCKET_TIMEOUT
 
 
 def send(ip, **data) -> bool:
@@ -37,13 +37,13 @@ def receive(socket) -> dict:
     Returns:
         dict: received data decoded into dictionary
     """
-    # timeout after 10 seconds if no data received
-    socket.settimeout(10.0)
+    # timeout after TIMEOUT seconds if no data received
+    socket.settimeout(SOCKET_TIMEOUT)
     buff = b''
 
     while True:
         temp = b''
-        temp = socket.recv(4096)
+        temp = socket.recv(CHUNK_SIZE)
 
         if temp != b'':
             buff += temp

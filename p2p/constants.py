@@ -4,3 +4,7 @@ EOM_CHAR = 0x04.to_bytes(1, 'big')
 PORT = 4000
 # Default encoding.
 ENCODING = 'utf-8'
+# Socket timeout.
+SOCKET_TIMEOUT = 10.0
+# chunk size
+CHUNK_SIZE = 4096
