@@ -7,6 +7,8 @@ from constants import *
 from routingTable import routingTable
 from fileSystem import fileSystem
 
+# TODO:- Limit the number of threads to a specific amount
+
 class Node(object):
     
     def __init__(self, bootstrapIP):
@@ -24,11 +26,22 @@ class Node(object):
         self.listener = threading.Thread(target=self.listen)
         self.retrieveMsg = threading.Thread(target=self.msgRetriever)
 
-        self.queryDict = {}
+        # Responses for query
+        self.queryRes = {}
+        self.queryResLock = threading.RLock()
+
+        # Chunks to be requested
+        self.chunkLeft = {}
+        self.chunkLeftLock = threading.RLock()
 
 
     def joinNetwork(self, bootstrapIP):
-        network.send_message(JOIN, sender=MY_IP, dest=bootstrapIP)
+        joinMsg = {
+            TYPE: JOIN,
+            SEND_IP: MY_IP,
+            DEST_IP: bootstrapIP,
+        }
+        network.send_message(bootstrapIP, **joinMsg)
 
         while not self.isJoined:
             clientsock, address = self.sock.accept()
@@ -39,9 +52,13 @@ class Node(object):
             if data[TYPE] != JOIN_ACK:
                 continue
 
-            self.routTab.initialise(data[ROUTING], data[SEND_GUID])
+            self.routTab.initialise(data[ROUTING], data[SEND_GUID])   # ROUT_ROB
             self.GUID = data[DEST_GUID]
             self.isJoined = True
+
+    def run(self):
+        self.listener.start()
+        self.retrieveMsg.start()
 
     def listen(self):
         while True:
@@ -61,21 +78,63 @@ class Node(object):
 
     def msgHandler(self, msg):
         if msg[TYPE] == PING:
-            pass
-        elif msg[TYPE] == PONG:
-            pass
-        elif msg[TYPE] == QUERY:
-            pass
-        elif msg[TYPE] == QUERY_RESP:
-            pass
-        elif msg[TYPE] == TRANSFER_REQ:
-            pass
-        elif msg[TYPE] == TRANSFER_FILE:
-            pass
+            pongMsg = {
+                TYPE: PONG,
+                SEND_IP: MY_IP,
+                SEND_GUID: self.GUID,
+                DEST_IP: msg[SEND_IP],
+                DEST_GUID: msg[SEND_GUID]
+            }
+            network.send_message(msg[SEND_IP], **pongMsg)
+            self.routTab.handlePing(msg)   # ROUT_ROB
 
-    def run(self):
-        self.listener.start()
-        self.retrieveMsg.start()
+        elif msg[TYPE] == PONG:
+            self.routTab.handlePong(msg)   # ROUT_ROB
+
+        elif msg[TYPE] == QUERY:
+            # TODO:- Handle Repeated Query
+            results = self.fileSys.search(msg[SEARCH])  #FILESYS_SAT
+            if results:
+                reponseMsg = {
+                    TYPE: QUERY_RESP,
+                    SEND_IP: MY_IP,
+                    SEND_GUID: self.GUID,
+                    DEST_IP: msg[SOURCE_IP],
+                    DEST_GUID: msg[SOURCE_GUID],
+                    QUERY_ID: msg[QUERY_ID],
+                    RESULTS: results
+                }
+                network.send_message(msg[SOURCE_IP], **reponseMsg)
+            
+            for neighbours in self.routTab.neighbours():   # ROUT_ROB
+                msg[DEST_IP] = neighbours[0]
+                msg[DEST_GUID] = neighbours[1]
+                if msg[DEST_GUID] != msg[SEND_GUID]:
+                    network.send_message(msg[DEST_IP], **msg)
+
+        elif msg[TYPE] == QUERY_RESP:
+            with self.queryResLock:
+                if msg[QUERY_ID] in self.queryRes:
+                    self.queryRes[msg[QUERY_ID]].append(msg)
+            
+        elif msg[TYPE] == TRANSFER_REQ:
+            fileTranMsg = {
+                TYPE: TRANSFER_FILE,
+                SEND_IP: MY_IP,
+                SEND_GUID: self.GUID,
+                DEST_IP: msg[SEND_IP],
+                DEST_GUID: msg[DEST_GUID],
+                REQUEST_ID: msg[REQUEST_ID],
+                CONTENT: self.fileSys.getContent(msg[FILE_ID], msg[CHUNK_NO])   #FILESYS_SAT
+            }
+            network.send_message(msg[SEND_IP], **fileTranMsg)
+
+        elif msg[TYPE] == TRANSFER_FILE:
+            with self.chunkLeftLock:
+                if msg[CHUNK_NO] in self.chunkLeft.get(msg[REQUEST_ID], set()) \
+                    and self.fileSys.writeChunk(msg):                       #FILESYS_SAT
+                    self.chunkLeft[msg[REQUEST_ID]].remove(msg[CHUNK_NO])
+
 
 
 if __name__ == '__main__':
