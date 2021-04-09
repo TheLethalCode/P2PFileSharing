@@ -22,9 +22,9 @@ class Node(object):
         self.sock.listen(5)
 
         self.joinNetwork(bootstrapIP)
-        self.eventQue = Queue()
+
+        # Listen at the APP_PORT
         self.listener = threading.Thread(target=self.listen)
-        self.retrieveMsg = threading.Thread(target=self.msgRetriever)
 
         # Responses for query
         self.queryRes = {}
@@ -41,14 +41,14 @@ class Node(object):
             SEND_IP: MY_IP,
             DEST_IP: bootstrapIP,
         }
-        network.send_message(bootstrapIP, **joinMsg)
+        network.send(bootstrapIP, **joinMsg)
 
         while not self.isJoined:
             clientsock, address = self.sock.accept()
             if address[0] != bootstrapIP:
                 continue
 
-            data = network.recv_message(clientsock)
+            data = network.receive(clientsock)
             if data[TYPE] != JOIN_ACK:
                 continue
 
@@ -56,27 +56,20 @@ class Node(object):
             self.GUID = data[DEST_GUID]
             self.isJoined = True
 
+
     def run(self):
         self.listener.start()
-        self.retrieveMsg.start()
+
 
     def listen(self):
         while True:
             clientsock, _ = self.sock.accept()
-            handleReq = threading.Thread(target=self.reqHandler, args=(clientsock,))
-            handleReq.start()
+            handleMsg = threading.Thread(target=self.msgHandler, args=(clientsock,))
+            handleMsg.start()
 
-    def reqHandler(self, clientsock):
-        msg = network.recv_message(clientsock)
-        if msg:
-            self.eventQue.put(msg)
 
-    def msgRetriever(self):
-        msg = self.eventQue.get()
-        handleMsg = threading.Thread(target=self.msgHandler, args=(msg,))
-        handleMsg.start()
-
-    def msgHandler(self, msg):
+    def msgHandler(self, clientsock):
+        msg = network.receive(clientsock)
         if msg[TYPE] == PING:
             pongMsg = {
                 TYPE: PONG,
@@ -85,7 +78,7 @@ class Node(object):
                 DEST_IP: msg[SEND_IP],
                 DEST_GUID: msg[SEND_GUID]
             }
-            network.send_message(msg[SEND_IP], **pongMsg)
+            network.send(msg[SEND_IP], **pongMsg)
             self.routTab.handlePing(msg)   # ROUT_ROB
 
         elif msg[TYPE] == PONG:
@@ -104,13 +97,13 @@ class Node(object):
                     QUERY_ID: msg[QUERY_ID],
                     RESULTS: results
                 }
-                network.send_message(msg[SOURCE_IP], **reponseMsg)
+                network.send(msg[SOURCE_IP], **reponseMsg)
             
             for neighbours in self.routTab.neighbours():   # ROUT_ROB
                 msg[DEST_IP] = neighbours[0]
                 msg[DEST_GUID] = neighbours[1]
                 if msg[DEST_GUID] != msg[SEND_GUID]:
-                    network.send_message(msg[DEST_IP], **msg)
+                    network.send(msg[DEST_IP], **msg)
 
         elif msg[TYPE] == QUERY_RESP:
             with self.queryResLock:
@@ -127,7 +120,7 @@ class Node(object):
                 REQUEST_ID: msg[REQUEST_ID],
                 CONTENT: self.fileSys.getContent(msg[FILE_ID], msg[CHUNK_NO])   #FILESYS_SAT
             }
-            network.send_message(msg[SEND_IP], **fileTranMsg)
+            network.send(msg[SEND_IP], **fileTranMsg)
 
         elif msg[TYPE] == TRANSFER_FILE:
             with self.chunkLeftLock:
