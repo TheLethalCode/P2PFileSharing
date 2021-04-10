@@ -18,3 +18,22 @@ FS_REPLICATION_PROGRESS = "RIP"
 FS_DOWNLOAD_COMPLETE = "FDC"
 # Download In-Progress
 FS_DOWNLOAD_PROGRESS = "FDP"
+
+# DATABASE DETAILS
+DB_HOST = "localhost"
+DB_USERNAME = "user"
+DB_PASSWORD = "pass"
+DB_NAME = "fsys"
+
+# MYMYSQL PASS 1234
+
+# TABLE DETAILS
+DB_TABLE_FILE = "FILETABLE"
+FT_NAME = "name"
+FT_PATH = "path"
+FT_SIZE = "size"
+FT_CHECKSUM = "checksum"
+FT_PARENTID = "parent_id"
+FT_RANDOMID = "random_id"
+FT_STATUS = "status"
+FT_REPLICATED_TO = "replication_node"
