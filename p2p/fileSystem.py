@@ -5,6 +5,7 @@ import mysql.connector
 from mysql.connector.errors import ProgrammingError
 from binaryornot.check import is_binary
 import hashlib
+import math
 
 
 class fileSystem(object):
@@ -17,6 +18,7 @@ class fileSystem(object):
 
     def __init__(self):
         super().__init__()
+        self.reqIdDict = {}
         self.fsLocation = constants.FILESYS_PATH
         try:
             self.fs_db = mysql.connector.connect(
@@ -136,7 +138,8 @@ class fileSystem(object):
                     return {
                         constants.CNT_CHUNK: readChunk,
                         constants.CNT_FILENAME: fileDetails[constants.FT_NAME],
-                        constants.CNT_CHECKSUM: self.checksum(readChunk)
+                        constants.CNT_CHECKSUM: self.checksum(readChunk),
+                        constants.CNT_FILEPATH: fileDetails[constants.FT_PATH]
                     }
             except Exception as Ex:
                 print(Ex)
@@ -204,10 +207,14 @@ class fileSystem(object):
         fileName = str(mssg[constants.REQUEST_ID])+"_" + \
             content[constants.CNT_FILENAME]
         chunk = content[constants.CNT_CHUNK]
+        filepath = content[constants.CNT_FILEPATH]
         checkSum_rec = content[constants.CNT_CHECKSUM]
         if self.checksum(chunk) != checkSum_rec:
             return False
         else:
+            if mssg[constants.REQUEST_ID] not in self.reqIdDict.keys():
+                self.reqIdDict[mssg[constants.REQUEST_ID]
+                               ] = filepath.split("/")[-1]
             if os.path.isdir(fileName) == False:
                 os.mkdir(fileName)
             with open(fileName+"/"+str(mssg[constants.CHUNK_NO]), "wb") as f:
@@ -216,5 +223,36 @@ class fileSystem(object):
                   str(mssg[constants.CHUNK_NO]), fileName))
             return True
 
-    def done(self):
+    def done(self, reqId):
+        folderName = self.get_foldername_using_reqId(reqId)
+        filename = self.reqIdDict[reqId]
+        self.join_chunks(folderName, "test"+filename)
+        return True
+
+    def get_foldername_using_reqId(self, request_id):
+        for x in os.listdir('.'):
+            if os.path.isdir(x) and x.startswith(str(request_id)+"_"):
+                return x
         pass
+
+    def join_chunks(self, fromdir, toFile):
+        with open(toFile, 'wb') as output:
+            parts = os.listdir(fromdir)
+            parts.sort()
+            for filename in parts:
+                print(filename)
+                filepath = os.path.join(fromdir, filename)
+                with open(filepath, 'rb') as input:
+                    output.write(input.read(constants.CHUNK_SIZE))
+
+    # def test_done(self):
+    #     for i in range(math.ceil(16712//constants.CHUNK_SIZE)):
+    #         chunk = self.get_content(4, i)
+    #         mssg = {
+    #             'Data': chunk,
+    #             'Chunk number': i,
+    #             'Request ID': 124
+    #         }
+    #         self.writeChunk(mssg)
+    #     print(self.done(124))
+    #     pass

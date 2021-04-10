@@ -53,3 +53,4 @@ CONTENT = 'Data'
 CNT_CHUNK = "chunk"
 CNT_FILENAME = "filename"
 CNT_CHECKSUM = "checksum"
+CNT_FILEPATH = "filepath"
