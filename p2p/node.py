@@ -42,6 +42,7 @@ class Node(object):
         # Chunks to be requested | chunkLeft[qId] = (num_chunks, set(chunks left))
         self.chunkLeft = {}
         self.chunkLeftLock = threading.RLock()
+        self.reqCnt = 0
 
         # Repeated queries
         self.repQuer = set()
@@ -251,9 +252,10 @@ class Node(object):
             SEND_GUID: self.GUID,
             DEST_IP: result[SEND_IP],
             DEST_GUID: result[SEND_GUID],
-            REQUEST_ID: qId,
+            REQUEST_ID: self.reqCnt,
             FILE_ID: result[RESULTS][resNum][FILE_ID]        # FILESYS_SAT
         }
+        self.reqCnt += 1
 
         numChunks = result[RESULTS][resNum][NUM_CHUNKS]         # FILESYS_SAT
         with self.chunkLeftLock:

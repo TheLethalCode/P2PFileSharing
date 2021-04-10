@@ -116,6 +116,7 @@ CONTENT = 'Data'
 #     DEST_IP,
 #     DEST_GUID,
 #     REQUEST_ID,
+#     CHUNK_NO,
 #     CONTENT,
 # }
 
