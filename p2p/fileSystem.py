@@ -4,6 +4,7 @@ import os
 import mysql.connector
 from mysql.connector.errors import ProgrammingError
 from binaryornot.check import is_binary
+import hashlib
 
 
 class fileSystem(object):
@@ -16,7 +17,6 @@ class fileSystem(object):
 
     def __init__(self):
         super().__init__()
-
         self.fsLocation = constants.FILESYS_PATH
         try:
             self.fs_db = mysql.connector.connect(
@@ -132,7 +132,12 @@ class fileSystem(object):
             try:
                 with open(file_path, "rb") as f:
                     f.seek(constants.CHUNK_SIZE * chunkNumber, 0)
-                    return f.read(constants.CHUNK_SIZE)
+                    readChunk = f.read(constants.CHUNK_SIZE)
+                    return {
+                        constants.CNT_CHUNK: readChunk,
+                        constants.CNT_FILENAME: fileDetails[constants.FT_NAME],
+                        constants.CNT_CHECKSUM: self.checksum(readChunk)
+                    }
             except Exception as Ex:
                 print(Ex)
                 return False
@@ -191,3 +196,25 @@ class fileSystem(object):
 
         pass
     pass
+
+    def checksum(self, chunk):
+        md5_hash = hashlib.md5()
+        md5_hash.update(chunk)
+        return md5_hash.hexdigest()
+
+    def writeChunk(self, mssg):
+        content = mssg[constants.CONTENT]
+        fileName = content[constants.CNT_FILENAME]
+        chunk = content[constants.CNT_CHUNK]
+        checkSum_rec = content[constants.CNT_CHECKSUM]
+        if self.checksum(chunk) != checkSum_rec:
+            return False
+        else:
+            if os.path.isdir(fileName) == False:
+                os.mkdir(fileName)
+            with open(fileName+"/"+str(mssg[constants.CHUNK_NO]), "wb") as f:
+                f.write(chunk)
+            print("Writing Chunk Number %s to %s is Successful",
+                  str(mssg[constants.CHUNK_NO]), fileName)
+            return True
+        pass

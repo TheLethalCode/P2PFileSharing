@@ -40,3 +40,15 @@ FT_RANDOMID = "random_id"
 FT_STATUS = "status"
 FT_REPLICATED_TO = "replication_node"
 FT_ID = "ID"
+
+CHUNK_NO = 'Chunk number'
+CONTENT = 'Data'
+# CONTENT = {
+# CHUNK,
+# FILENAME,
+# CHECKSUM
+# }
+# Description of CONTENT
+CNT_CHUNK = "chunk"
+CNT_FILENAME = "filename"
+CNT_CHECKSUM = "checksum"
