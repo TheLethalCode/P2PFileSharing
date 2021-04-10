@@ -194,9 +194,6 @@ class fileSystem(object):
                 print(Ex)
                 self.fs_db.rollback()
 
-        pass
-    pass
-
     def checksum(self, chunk):
         md5_hash = hashlib.md5()
         md5_hash.update(chunk)
@@ -204,7 +201,8 @@ class fileSystem(object):
 
     def writeChunk(self, mssg):
         content = mssg[constants.CONTENT]
-        fileName = content[constants.CNT_FILENAME]
+        fileName = str(mssg[constants.REQUEST_ID])+"_" + \
+            content[constants.CNT_FILENAME]
         chunk = content[constants.CNT_CHUNK]
         checkSum_rec = content[constants.CNT_CHECKSUM]
         if self.checksum(chunk) != checkSum_rec:
@@ -214,7 +212,9 @@ class fileSystem(object):
                 os.mkdir(fileName)
             with open(fileName+"/"+str(mssg[constants.CHUNK_NO]), "wb") as f:
                 f.write(chunk)
-            print("Writing Chunk Number %s to %s is Successful",
-                  str(mssg[constants.CHUNK_NO]), fileName)
+            print("Writing Chunk Number %s to %s is Successful" % (
+                  str(mssg[constants.CHUNK_NO]), fileName))
             return True
+
+    def done(self):
         pass

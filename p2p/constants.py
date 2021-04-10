@@ -41,6 +41,7 @@ FT_STATUS = "status"
 FT_REPLICATED_TO = "replication_node"
 FT_ID = "ID"
 
+REQUEST_ID = 'Request ID'
 CHUNK_NO = 'Chunk number'
 CONTENT = 'Data'
 # CONTENT = {
