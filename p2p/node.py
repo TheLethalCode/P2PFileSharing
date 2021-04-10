@@ -259,9 +259,9 @@ class Node(object):
 
         numChunks = result[RESULTS][resNum][NUM_CHUNKS]         # FILESYS_SAT
         with self.chunkLeftLock:
-            self.chunkLeft[qId] = (numChunks, set())
+            self.chunkLeft[transferReq[REQUEST_ID]] = (numChunks, set())
             for i in range(numChunks):
-                self.chunkLeft[qId][1].add(i)
+                self.chunkLeft[transferReq[REQUEST_ID]][1].add(i)
 
         for ind in range(NUM_THREADS):
             reqCopy = copy.deepcopy(transferReq)
@@ -270,13 +270,13 @@ class Node(object):
             thr.start()
 
     # Check the progress of the transfer
-    def checkProgress(self, qId):
+    def checkProgress(self, reqId):
         with self.chunkLeftLock:
-            prog = self.chunkLeft.get(qId, None)
+            prog = self.chunkLeft.get(reqId, None)
         
         if prog is not None:
             print("Done {} / {}".format(prog[0] - len(prog[1]), prog[0]))
-        elif self.fileSys.isFinished(qId):          # FILESYS_SAT
+        elif self.fileSys.isFinished(reqId):          # FILESYS_SAT
             print("Download finished")
         else:
             print("Incorrect ID")
