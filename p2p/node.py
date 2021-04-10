@@ -17,6 +17,7 @@ from fileSystem import fileSystem
 class Node(object):
     
     def __init__(self):
+
         self.GUID = None
         self.routTab = routingTable()
         self.fileSys = fileSystem()
@@ -207,16 +208,22 @@ class Node(object):
     # Displays the results received till now
     def displayResults(self, qId):
         with self.queryResLock:
-            for ind, result in enumerate(self.queryRes[qId]):
-                print("Result {}".format(ind + 1))
-                print(result[RESULTS])
-                print("===================\n")
+            for ind, results in enumerate(self.queryRes[qId]):
+                print("Peer {}".format(ind + 1))
+                
+                for ind1, result in enumerate(results[RESULTS]):
+                    print("\tResult {}".format(ind1 + 1))
+                    print("\t{}".format(result))
+                    print("---------------------\n")
+
+                print("\n===================\n")
+
 
     # Choose the desired response for file transfer
-    def chooseResults(self, qId, num):
+    def chooseResults(self, qId, peerNum, resNum):
         try:
             with self.queryResLock:
-                result = self.queryRes[qId][num]
+                result = self.queryRes[qId][peerNum]
         except (KeyError, IndexError):
             print("Invalid arguments.")
             return
@@ -228,10 +235,10 @@ class Node(object):
             DEST_IP: result[SEND_IP],
             DEST_GUID: result[SEND_GUID],
             REQUEST_ID: qId,
-            FILE_ID: result[RESULTS][FILE_ID]
+            FILE_ID: result[RESULTS][resNum][FILE_ID]        # FILESYS_SAT
         }
 
-        numChunks = result[RESULTS][NUM_CHUNKS]         # FILESYS_SAT
+        numChunks = result[RESULTS][resNum][NUM_CHUNKS]         # FILESYS_SAT
         with self.chunkLeftLock:
             self.chunkLeft[qId] = (numChunks, set())
             for i in range(numChunks):
