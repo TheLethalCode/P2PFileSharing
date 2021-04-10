@@ -94,7 +94,7 @@ class fileSystem(object):
             constants.FT_ID, constants.FT_NAME, constants.FT_SIZE, constants.FT_CHECKSUM, constants.DB_TABLE_FILE, constants.FT_NAME)
         query += "'%"+word+"%' "
         query += " OR "+constants.FT_PATH+" LIKE '%"+word+"%'"
-        print(query)
+        # print(query)
         response = []
         try:
             self.fs_db_cursor.execute(query)
@@ -125,7 +125,7 @@ class fileSystem(object):
             False, if File DNE or File is not Binary
     """
 
-    def get_content(self, fileId, chunkNumber):
+    def getContent(self, fileId, chunkNumber):
         fileDetails = self.get_fileDetails_from_fileID(fileId)
         file_path = fileDetails[constants.FT_PATH]
         if is_binary(file_path) == False:
@@ -158,7 +158,6 @@ class fileSystem(object):
             constants.FT_REPLICATED_TO: a[8]
         }
         return a_dict
-        pass
 
     def get_fileDetails_from_fileID(self, fileId):
         query = "SELECT * from "+constants.DB_TABLE_FILE + \

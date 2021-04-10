@@ -14,7 +14,7 @@ from fileSystem import fileSystem
 # TODO:- Make the transfer for each thread faster by using an intermediate signal of sorts
 # without waiting for the timeout and recheck
 # TODO:- Error Handling
-# TODO:- Add type of message attributes in constants
+# TODO:- Clean constants file
 
 class Node(object):
     
@@ -137,7 +137,7 @@ class Node(object):
             
             # If not repeated search database and forward query
             if not ok:                
-                results = self.fileSys.search(msg[SEARCH])  #FILESYS_SAT
+                results = self.fileSys.search(msg[SEARCH])
 
                 if bool(results):
                     reponseMsg = {
@@ -173,7 +173,7 @@ class Node(object):
                 DEST_IP: msg[SEND_IP],
                 DEST_GUID: msg[DEST_GUID],
                 REQUEST_ID: msg[REQUEST_ID],
-                CONTENT: self.fileSys.getContent(msg[FILE_ID], msg[CHUNK_NO])   #FILESYS_SAT
+                CONTENT: self.fileSys.getContent(msg[FILE_ID], msg[CHUNK_NO])
             }
             network.send(msg[SEND_IP], **fileTranMsg)
 
@@ -183,13 +183,13 @@ class Node(object):
                 
                 # If the request is not yet done and the write to the file system is successful
                 if msg[CHUNK_NO] in self.chunkLeft.get(msg[REQUEST_ID], (0, set()))[1] \
-                    and self.fileSys.writeChunk(msg):                       #FILESYS_SAT
+                    and self.fileSys.writeChunk(msg):                       
 
                     self.chunkLeft[msg[REQUEST_ID]][1].remove(msg[CHUNK_NO])
 
                     # If all the chunks are done, inform filesys of the completion
                     if not bool(self.chunkLeft[msg[REQUEST_ID]][1]):
-                        self.fileSys.done(msg[REQUEST_ID])                  #FILESYS_SAT
+                        self.fileSys.done(msg[REQUEST_ID])                  
                         del self.chunkLeft[msg[REQUEST_ID]]
 
     # Function for a thread to use for requesting transfer of content
