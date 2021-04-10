@@ -4,7 +4,7 @@ import time
 from json.decoder import JSONDecodeError
 import uuid
 
-from p2p.constants import CHUNK_SIZE, ENCODING, EOM_CHAR, PORT, SOCKET_TIMEOUT
+from p2p.constants import CHUNK_SIZE, ENCODING, EOM_CHAR, APP_PORT, SOCKET_TIMEOUT
 
 
 def send(ip: str, **data) -> bool:
@@ -72,7 +72,7 @@ def _get_socket(ip: str) -> socket:
         socket: Socket to the IP.
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(ip, PORT)
+    sock.connect(ip, APP_PORT)
     return sock
 
 
