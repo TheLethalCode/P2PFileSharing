@@ -23,7 +23,7 @@ class Node(object):
         self.fileSys = fileSystem()
         self.isJoined = isBootstrap
         if isBootstrap:
-            self.GUID = network.generateGUID()
+            self.GUID = network.generate_guid()
         else:
             self.GUID = None
 
@@ -102,7 +102,7 @@ class Node(object):
                 SEND_IP: MY_IP,
                 SEND_GUID: self.GUID,
                 DEST_IP: msg[SEND_IP],
-                DEST_GUID: network.generateGUID(),
+                DEST_GUID: network.generate_guid(),
                 ROUTING: self.routTab.getTable()            # ROUT_ROB
             }
             network.send(joinAck[DEST_IP], **joinAck)
@@ -200,7 +200,7 @@ class Node(object):
     # Sends a Query for the required content to all its neighbours
     def findContent(self, searchQ):
 
-        qId = network.generateId(self.GUID, self.queryCnt)
+        qId = network.generate_uuid_from_guid(self.GUID, self.queryCnt)
 
         with self.queryResLock:
             self.queryRes[qId] = []
