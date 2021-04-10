@@ -2,11 +2,12 @@ import json
 import socket
 import time
 from json.decoder import JSONDecodeError
+import uuid
 
 from p2p.constants import CHUNK_SIZE, ENCODING, EOM_CHAR, PORT, SOCKET_TIMEOUT
 
 
-def send(ip, **data) -> bool:
+def send(ip: str, **data) -> bool:
     """Send data to IP (default PORT) with EOM_CHAR at the end.
 
     Args:
@@ -28,7 +29,7 @@ def send(ip, **data) -> bool:
         return False
 
 
-def receive(socket) -> dict:
+def receive(socket: socket) -> dict:
     """Receive data from socket until EOM_CHAR.
 
     Args:
@@ -61,7 +62,7 @@ def receive(socket) -> dict:
         time.sleep(0.01)
 
 
-def _get_socket(ip) -> socket:
+def _get_socket(ip: str) -> socket:
     """Get socket to the provided IP.
 
     Args:
@@ -73,3 +74,24 @@ def _get_socket(ip) -> socket:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(ip, PORT)
     return sock
+
+
+def generate_guid() -> str:
+    """Generate a random UUID.
+
+    Returns:
+        str: UUID
+    """
+    return str(uuid.uuid4())
+
+def generate_uuid_from_guid(guid:  str, number: int) -> str:
+    """Generate UUID from MD5 Hash of GUID and sequence number.
+
+    Args:
+        guid (str): Hex digest of UUID.
+        number (int): Sequence number.
+
+    Returns:
+        str: Hex digest of generate UUID.
+    """
+    return uuid.uuid3(uuid.UUID(guid), str(number))
