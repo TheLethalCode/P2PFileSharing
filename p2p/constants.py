@@ -8,9 +8,12 @@ ENCODING = 'utf-8'
 SOCKET_TIMEOUT = 10.0
 # chunk size
 CHUNK_SIZE = 4096
-
+# My IP address in the network
 MY_IP = '127.0.0.1'
+# Num threads for requesting content
+NUM_THREADS = 10
 
+# Message related constant
 JOIN = 'Join'
 JOIN_ACK = 'Join Ack'
 PING = 'Ping'
@@ -37,8 +40,9 @@ RESULTS = 'Results'
 
 FILE_ID = 'File ID'
 CHUNK_NO = 'Chunk number'
-
+NUM_CHUNKS = 'Number Chunks'
 REQUEST_ID = 'Request ID'
+
 CONTENT = 'Data'
 
 # JOIN MESSAGE = {
@@ -70,6 +74,18 @@ CONTENT = 'Data'
 #     SEND_GUID,
 #     DEST_IP,
 #     DEST_GUID,
+# }
+
+# QUERY_MESSAGE = {
+#     TYPE
+#     SEND_IP
+#     SEND_GUID
+#     DEST_IP
+#     DEST_GUID
+#     SOURCE_IP
+#     SOURCE_GUID
+#     SEARCH
+#     QUERY_ID
 # }
 
 # QUERY_RESP MESSAGE = {

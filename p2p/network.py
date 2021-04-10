@@ -73,3 +73,8 @@ def _get_socket(ip) -> socket:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(ip, APP_PORT)
     return sock
+
+
+def generateId(GUID, cnt):
+    pass
+    return cnt
