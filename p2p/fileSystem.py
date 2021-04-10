@@ -40,7 +40,7 @@ class fileSystem(object):
             self.fs_db.commit()
             print("CREATING TABLE")
             query = "CREATE TABLE "+constants.DB_TABLE_FILE+" ( "\
-                + "id INT AUTO_INCREMENT PRIMARY KEY,"\
+                + constants.FT_ID + " INT AUTO_INCREMENT PRIMARY KEY,"\
                 + constants.FT_NAME+" VARCHAR(100) NOT NULL, "\
                 + constants.FT_PATH+" VARCHAR(255), "\
                 + constants.FT_SIZE+" INT(255), "\
@@ -87,8 +87,8 @@ class fileSystem(object):
             self.fs_db.rollback()
 
     def search(self, word):
-        query = 'SELECT %s,%s,%s FROM %s WHERE %s LIKE ' % (
-            constants.FT_NAME, constants.FT_SIZE, constants.FT_CHECKSUM, constants.DB_TABLE_FILE, constants.FT_NAME)
+        query = 'SELECT %s,%s,%s,%s FROM %s WHERE %s LIKE ' % (
+            constants.FT_ID, constants.FT_NAME, constants.FT_SIZE, constants.FT_CHECKSUM, constants.DB_TABLE_FILE, constants.FT_NAME)
         query += "'%"+word+"%' "
         query += " OR "+constants.FT_PATH+" LIKE '%"+word+"%'"
         print(query)
@@ -98,9 +98,10 @@ class fileSystem(object):
             result = self.fs_db_cursor.fetchall()
             for r in result:
                 response.append({
-                    'name': r[0],
-                    'size': r[1],
-                    'checksum': r[2]
+                    'id': r[0],
+                    'name': r[1],
+                    'size': r[2],
+                    'checksum': r[3]
                 })
                 # print(r)
         except Exception as Ex:
