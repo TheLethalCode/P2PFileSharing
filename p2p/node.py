@@ -13,16 +13,20 @@ from fileSystem import fileSystem
 # TODO:- Save state periodically and load
 # TODO:- Make the transfer for each thread faster by using an intermediate signal of sorts
 # without waiting for the timeout and recheck
+# TODO:- Error Handling
 
 class Node(object):
     
-    def __init__(self):
+    def __init__(self, isBootstrap = False):
 
-        self.GUID = None
         self.routTab = routingTable()
         self.fileSys = fileSystem()
-        self.isJoined = False
-        
+        self.isJoined = isBootstrap
+        if isBootstrap:
+            self.GUID = network.generateGUID()
+        else:
+            self.GUID = None
+
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind('', APP_PORT)
         self.sock.listen(5)
@@ -30,7 +34,7 @@ class Node(object):
         # Listen at the APP_PORT
         self.listener = threading.Thread(target=self.listen)
 
-        # Responses for query
+        # Responses for query | queryRes[qId] = [query_rsp_msgs]
         self.queryCnt = 0
         self.queryRes = {}
         self.queryResLock = threading.RLock()
@@ -90,6 +94,18 @@ class Node(object):
         
         if msg is None:
             return
+
+        if msg[TYPE] == JOIN:
+            joinAck = {
+                TYPE: JOIN_ACK,
+                SEND_IP: MY_IP,
+                SEND_GUID: self.GUID,
+                DEST_IP: msg[SEND_IP],
+                DEST_GUID: network.generateGUID(),
+                ROUTING: self.routTab.getTable()            # ROUT_ROB
+            }
+            network.send(joinAck[DEST_IP], **joinAck)
+            self.routTab.addPeer(joinAck[DEST_IP], joinAck[DEST_GUID])  # ROUT_ROB
 
         if msg[TYPE] == PING:
             pongMsg = {
@@ -184,7 +200,6 @@ class Node(object):
     def findContent(self, searchQ):
 
         qId = network.generateId(self.GUID, self.queryCnt)
-        print("Query Id: {}".format(qId))
 
         with self.queryResLock:
             self.queryRes[qId] = []
@@ -204,6 +219,8 @@ class Node(object):
                 queryMsg[DEST_IP] = neighbours[0]
                 queryMsg[DEST_GUID] = neighbours[1]
                 network.send(queryMsg[DEST_IP], **queryMsg)
+        
+        print("Query Id: {}".format(qId))
 
     # Displays the results received till now
     def displayResults(self, qId):
@@ -262,6 +279,14 @@ class Node(object):
         else:
             print("Incorrect ID")
 
+    # Share Files
+    def shareContent(self, path):
+        self.fileSys.add(path)                  # FILESYS_SAT
+
+    # Remove Shared Content
+    def removeShare(self, path):
+        self.fileSys.remove(path)               # FILESYS_SAT
+
 
 def parseCmds(cmd):
     pass
@@ -279,7 +304,7 @@ if __name__ == '__main__':
     peer.run(bootstrapIP)
 
     while True:
-        cmd = input(">").split()
+        cmd = input("> ").split()
         parseCmds(cmd)
 
 

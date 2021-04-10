@@ -78,3 +78,7 @@ def _get_socket(ip) -> socket:
 def generateId(GUID, cnt):
     pass
     return cnt
+
+def generateGUID():
+    pass
+    return 0
