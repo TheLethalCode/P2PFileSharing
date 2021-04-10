@@ -14,6 +14,7 @@ from fileSystem import fileSystem
 # TODO:- Make the transfer for each thread faster by using an intermediate signal of sorts
 # without waiting for the timeout and recheck
 # TODO:- Error Handling
+# TODO:- Add type of message attributes in constants
 
 class Node(object):
     
@@ -21,12 +22,15 @@ class Node(object):
 
         self.routTab = routingTable()
         self.fileSys = fileSystem()
+        
+        # Handle the case of bootstrapping node
         self.isJoined = isBootstrap
         if isBootstrap:
             self.GUID = network.generate_guid()
         else:
             self.GUID = None
 
+        # Permanent socket for the APP
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind('', APP_PORT)
         self.sock.listen(5)
@@ -39,7 +43,7 @@ class Node(object):
         self.queryRes = {}
         self.queryResLock = threading.RLock()
 
-        # Chunks to be requested | chunkLeft[qId] = (num_chunks, set(chunks left))
+        # Chunks to be requested | chunkLeft[qId] = (total_chunks, set(chunks left))
         self.chunkLeft = {}
         self.chunkLeftLock = threading.RLock()
         self.reqCnt = 0
@@ -52,7 +56,9 @@ class Node(object):
     def load_state(self):
         pass
 
+    # Join the network using the bootstrapIP as the common point
     def joinNetwork(self, bootstrapIP):
+        # Create a Join Message and send it to the bootstrap peer
         joinMsg = {
             TYPE: JOIN,
             SEND_IP: MY_IP,
@@ -60,6 +66,7 @@ class Node(object):
         }
         network.send(bootstrapIP, **joinMsg)
 
+        # Wait for the JOIN_ACK message
         while not self.isJoined:
             clientsock, address = self.sock.accept()
             if address[0] != bootstrapIP:
@@ -72,6 +79,7 @@ class Node(object):
             self.routTab.initialise(data[ROUTING], data[SEND_GUID])   # ROUT_ROB
             self.GUID = data[DEST_GUID]
             self.isJoined = True
+            print("Successfully Joined Network")
 
     # Join the network and start the listener thread
     def run(self, bootstrapIP = None):
