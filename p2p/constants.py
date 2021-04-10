@@ -6,6 +6,8 @@ PORT = 4000
 ENCODING = 'utf-8'
 # Storage path for Hashed FileSystem
 FILESYS_PATH = "fs.pkl"
+# Chunk Size (in Bytes) 4096 bytes = 4KB
+CHUNK_SIZE = 4096
 
 # STATUSES FOR FILESYSTEM
 # Uploaded by current node

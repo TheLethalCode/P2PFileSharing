@@ -3,6 +3,7 @@ import sys
 import os
 import mysql.connector
 from mysql.connector.errors import ProgrammingError
+from binaryornot.check import is_binary
 
 
 class fileSystem(object):
@@ -110,6 +111,52 @@ class fileSystem(object):
             self.fs_db.rollback()
         finally:
             return response
+
+    """
+        Returns as chunk of predefined ChunkSize from file using input FileID
+
+        Inputs: 
+            fileId
+            chunkNumber
+        Returns:
+            Chunk, if accessible
+            False, if File DNE or File is not Binary
+    """
+
+    def get_content(self, fileId, chunkNumber):
+        fileDetails = self.get_fileDetails_from_fileID(fileId)
+        file_path = fileDetails[constants.FT_PATH]
+        if is_binary(file_path) == False:
+            return False
+        else:
+            try:
+                with open(file_path, "rb") as f:
+                    f.seek(constants.CHUNK_SIZE * chunkNumber, 0)
+                    return f.read(constants.CHUNK_SIZE)
+            except Exception as Ex:
+                print(Ex)
+                return False
+
+    def get_list_item_to_fileSys_item(self, a):
+        a_dict = {
+            constants.FT_ID: a[0],
+            constants.FT_NAME: a[1],
+            constants.FT_PATH: a[2],
+            constants.FT_SIZE: a[3],
+            constants.FT_CHECKSUM: a[4],
+            constants.FT_PARENTID: a[5],
+            constants.FT_RANDOMID: a[6],
+            constants.FT_STATUS: a[7],
+            constants.FT_REPLICATED_TO: a[8]
+        }
+        return a_dict
+        pass
+
+    def get_fileDetails_from_fileID(self, fileId):
+        query = "SELECT * from "+constants.DB_TABLE_FILE + \
+            " where "+constants.FT_ID+" = "+str(fileId)
+        result = self.execute_query(query, True)[0]
+        return self.get_list_item_to_fileSys_item(result)
 
     def upload_file(self, filepath):
         pass
