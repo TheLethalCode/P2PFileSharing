@@ -6,8 +6,6 @@ daiquiri.setup(level=logging.INFO)
 LOGGER = daiquiri.getLogger(__name__)
 LOGGER.info("logger initialized!")
 
-# End character for send/receive messages.
-EOM_CHAR = 0x04.to_bytes(1, 'big')
 # Default Port for creating socket connection.
 APP_PORT = 4000
 # Default encoding.
