@@ -42,9 +42,9 @@ FT_REPLICATED_TO = "replication_node"
 FT_ID = "ID"
 
 # CONTENT = {
-# CHUNK,
-# FILENAME,
-# CHECKSUM
+#     CHUNK,
+#     FILENAME,
+#     CHECKSUM
 # }
 # Description of CONTENT
 CNT_CHUNK = "chunk"

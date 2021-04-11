@@ -14,6 +14,7 @@ from fileSystem import fileSystem
 # TODO:- Make the transfer for each thread faster by using an intermediate signal of sorts
 # without waiting for the timeout and recheck
 # TODO:- Error Handling
+# TODO:- Clean constants file
 
 class Node(object):
     
@@ -21,12 +22,15 @@ class Node(object):
 
         self.routTab = routingTable()
         self.fileSys = fileSystem()
+        
+        # Handle the case of bootstrapping node
         self.isJoined = isBootstrap
         if isBootstrap:
             self.GUID = network.generate_guid()
         else:
             self.GUID = None
 
+        # Permanent socket for the APP
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind('', APP_PORT)
         self.sock.listen(5)
@@ -39,7 +43,7 @@ class Node(object):
         self.queryRes = {}
         self.queryResLock = threading.RLock()
 
-        # Chunks to be requested | chunkLeft[qId] = (num_chunks, set(chunks left))
+        # Chunks to be requested | chunkLeft[qId] = (total_chunks, set(chunks left))
         self.chunkLeft = {}
         self.chunkLeftLock = threading.RLock()
         self.reqCnt = 0
@@ -52,7 +56,9 @@ class Node(object):
     def load_state(self):
         pass
 
+    # Join the network using the bootstrapIP as the common point
     def joinNetwork(self, bootstrapIP):
+        # Create a Join Message and send it to the bootstrap peer
         joinMsg = {
             TYPE: JOIN,
             SEND_IP: MY_IP,
@@ -60,6 +66,7 @@ class Node(object):
         }
         network.send(bootstrapIP, **joinMsg)
 
+        # Wait for the JOIN_ACK message
         while not self.isJoined:
             clientsock, address = self.sock.accept()
             if address[0] != bootstrapIP:
@@ -69,9 +76,10 @@ class Node(object):
             if data[TYPE] != JOIN_ACK:
                 continue
 
-            self.routTab.initialise(data[ROUTING], data[SEND_GUID])   # ROUT_ROB
             self.GUID = data[DEST_GUID]
+            self.routTab.initialise(rt = data[ROUTING], myGUID =  self.GUID, Central_GUID = data[SEND_GUID], Central_IP = bootstrapIP)   # ROUT_ROB
             self.isJoined = True
+            print("Successfully Joined Network")
 
     # Join the network and start the listener thread
     def run(self, bootstrapIP = None):
@@ -106,7 +114,7 @@ class Node(object):
                 ROUTING: self.routTab.getTable()            # ROUT_ROB
             }
             network.send(joinAck[DEST_IP], **joinAck)
-            self.routTab.addPeer(joinAck[DEST_IP], joinAck[DEST_GUID])  # ROUT_ROB
+            self.routTab.addPeer(GUID = joinAck[DEST_GUID], IPAddr = joinAck[DEST_IP])  # ROUT_ROB
 
         if msg[TYPE] == PING:
             pongMsg = {
@@ -129,7 +137,7 @@ class Node(object):
             
             # If not repeated search database and forward query
             if not ok:                
-                results = self.fileSys.search(msg[SEARCH])  #FILESYS_SAT
+                results = self.fileSys.search(msg[SEARCH])
 
                 if bool(results):
                     reponseMsg = {
@@ -165,7 +173,7 @@ class Node(object):
                 DEST_IP: msg[SEND_IP],
                 DEST_GUID: msg[DEST_GUID],
                 REQUEST_ID: msg[REQUEST_ID],
-                CONTENT: self.fileSys.getContent(msg[FILE_ID], msg[CHUNK_NO])   #FILESYS_SAT
+                CONTENT: self.fileSys.getContent(msg[FILE_ID], msg[CHUNK_NO])
             }
             network.send(msg[SEND_IP], **fileTranMsg)
 
@@ -175,13 +183,13 @@ class Node(object):
                 
                 # If the request is not yet done and the write to the file system is successful
                 if msg[CHUNK_NO] in self.chunkLeft.get(msg[REQUEST_ID], (0, set()))[1] \
-                    and self.fileSys.writeChunk(msg):                       #FILESYS_SAT
+                    and self.fileSys.writeChunk(msg):                       
 
                     self.chunkLeft[msg[REQUEST_ID]][1].remove(msg[CHUNK_NO])
 
                     # If all the chunks are done, inform filesys of the completion
                     if not bool(self.chunkLeft[msg[REQUEST_ID]][1]):
-                        self.fileSys.done(msg[REQUEST_ID])                  #FILESYS_SAT
+                        self.fileSys.done(msg[REQUEST_ID])                  
                         del self.chunkLeft[msg[REQUEST_ID]]
 
     # Function for a thread to use for requesting transfer of content
