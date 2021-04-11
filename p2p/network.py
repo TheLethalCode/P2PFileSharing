@@ -4,7 +4,7 @@ import time
 from json.decoder import JSONDecodeError
 import uuid
 
-from p2p.constants import CHUNK_SIZE, ENCODING, EOM_CHAR, APP_PORT, SOCKET_TIMEOUT
+from constants import CHUNK_SIZE, ENCODING, EOM_CHAR, APP_PORT, SOCKET_TIMEOUT
 
 
 def send(ip: str, **data) -> bool:
