@@ -12,7 +12,7 @@ import math
 # TODO: modify queries to check status
 # TODO: add function to update status using fileID
 # TODO: return correctly the response in search()
-# TODO: share and remove content
+# TODO: request removal of replication when removing content
 
 
 class fileSystem(object):
