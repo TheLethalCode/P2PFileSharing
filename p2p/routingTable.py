@@ -5,6 +5,9 @@ import threading
 import network
 from constants import *
 
+#TODO: Satyams comments on constants for updatefreq, inactive limit, use self.filename instead of RT.json
+#TODO: read about the strategy to manage churn and limit the RT size, lookat how gnutella does it maybe
+
 class routingTable(object):
     def __init__(self, updateFreq=10, inactiveLimit=10):
         self.myGUID = 0
