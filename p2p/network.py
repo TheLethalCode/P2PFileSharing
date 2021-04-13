@@ -4,7 +4,7 @@ import time
 from json.decoder import JSONDecodeError
 import uuid
 
-from p2p.constants import CHUNK_SIZE, ENCODING, EOM_CHAR, APP_PORT, SOCKET_TIMEOUT
+from constants import CHUNK_SIZE, ENCODING, EOM_CHAR, APP_PORT, SOCKET_TIMEOUT
 
 
 def send(ip: str, **data) -> bool:
@@ -20,7 +20,7 @@ def send(ip: str, **data) -> bool:
     try:
         data = dict(data)
         data = json.dumps(data)
-        data = data.encode(ENCODING) + EOM_CHAR
+        data = str(len(data)).encode(ENCODING) + data.encode(ENCODING)
         socket = _get_socket(ip)
         socket.sendall(data)
         return True
@@ -41,18 +41,23 @@ def receive(socket: socket) -> dict:
     # timeout after TIMEOUT seconds if no data received
     socket.settimeout(SOCKET_TIMEOUT)
     buff = b''
+    length = None
 
     while True:
         temp = b''
         temp = socket.recv(CHUNK_SIZE)
 
         if temp != b'':
-            buff += temp
-            end = buff.find(EOM_CHAR)
-
-            if end > 0:
+            if length is None:
+                length = int(temp[:4].decode(ENCODING))
+                temp = temp[4:]
+            
+            if length > len(temp):
+                buff += temp
+                length -= len(temp)
+            else:
+                buff += temp[:length]
                 try:
-                    buff = buff[:end]
                     buff = buff.decode(ENCODING)
                     return json.loads(buff)
                 except JSONDecodeError as err:

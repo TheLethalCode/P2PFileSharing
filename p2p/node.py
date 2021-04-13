@@ -78,8 +78,8 @@ class Node(object):
             if data[TYPE] != JOIN_ACK:
                 continue
 
-            self.routTab.initialise(data[ROUTING], data[SEND_GUID])   # ROUT_ROB
             self.GUID = data[DEST_GUID]
+            self.routTab.initialise(rt = data[ROUTING], myGUID =  self.GUID, Central_GUID = data[SEND_GUID], Central_IP = bootstrapIP)   # ROUT_ROB
             self.isJoined = True
             print("Successfully Joined Network")
 
@@ -116,7 +116,7 @@ class Node(object):
                 ROUTING: self.routTab.getTable()            # ROUT_ROB
             }
             network.send(joinAck[DEST_IP], **joinAck)
-            self.routTab.addPeer(joinAck[DEST_IP], joinAck[DEST_GUID])  # ROUT_ROB
+            self.routTab.addPeer(GUID = joinAck[DEST_GUID], IPAddr = joinAck[DEST_IP])  # ROUT_ROB
 
         if msg[TYPE] == PING:
             pongMsg = {
