@@ -13,8 +13,10 @@ from fileSystem import fileSystem
 # TODO:- Save state periodically and load
 # TODO:- Make the transfer for each thread faster by using an intermediate signal of sorts
 # without waiting for the timeout and recheck
-# TODO:- Error Handling
+# TODO:- Error Handling and logging
 # TODO:- Clean constants file
+# TODO:- Parse Commands
+# TODO:- Initialise, Abort
 
 class Node(object):
     
@@ -196,13 +198,17 @@ class Node(object):
     def requestTransfer(self, tid, numChunks, msg):
         start = tid
         while start < numChunks:
-            ok = True
+            
+            with self.chunkLeftLock:
+                ok = (start in self.chunkLeft[msg[REQUEST_ID]][1])
             msg[CHUNK_NO] = start
+
             while ok:
                 network.send(msg[DEST_IP], **msg)
-                time.sleep(15)
+                time.sleep(10)
                 with self.chunkLeftLock:
                     ok = (start in self.chunkLeft[msg[REQUEST_ID]][1])
+            
             start += NUM_THREADS
 
     # Sends a Query for the required content to all its neighbours
