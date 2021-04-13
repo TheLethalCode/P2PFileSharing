@@ -1,9 +1,9 @@
 import socket
-import network
 import threading
 import time
 import copy
 import sys, os
+import network
 from constants import *
 from routingTable import routingTable
 from fileSystem import fileSystem
@@ -13,8 +13,8 @@ from fileSystem import fileSystem
 # TODO:- Save state periodically and load
 # TODO:- Make the transfer for each thread faster by using an intermediate signal of sorts
 # without waiting for the timeout and recheck
-# TODO:- Error Handling
-# TODO:- Clean constants file
+# TODO:- Error Handling and logging
+# TODO:- Initialise, Abort
 
 class Node(object):
     
@@ -32,11 +32,12 @@ class Node(object):
 
         # Permanent socket for the APP
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind('', APP_PORT)
-        self.sock.listen(5)
+        self.sock.bind(('', APP_PORT))
+        self.sock.listen(LISTEN_QUEUE)
 
         # Listen at the APP_PORT
         self.listener = threading.Thread(target=self.listen)
+        self.listener.daemon = True
 
         # Responses for query | queryRes[qId] = [query_rsp_msgs]
         self.queryCnt = 0
@@ -77,7 +78,8 @@ class Node(object):
                 continue
 
             self.GUID = data[DEST_GUID]
-            self.routTab.initialise(rt = data[ROUTING], myGUID =  self.GUID, Central_GUID = data[SEND_GUID], Central_IP = bootstrapIP)   # ROUT_ROB
+            self.routTab.initialise(rt = data[ROUTING], myGUID =  self.GUID, 
+                    Central_GUID = data[SEND_GUID], Central_IP = bootstrapIP)
             self.isJoined = True
             print("Successfully Joined Network")
 
@@ -95,13 +97,14 @@ class Node(object):
         while True:
             clientsock, _ = self.sock.accept()
             handleMsg = threading.Thread(target=self.msgHandler, args=(clientsock,))
+            handleMsg.daemon = True
             handleMsg.start()
 
     # Handles the different type of incoming message
     def msgHandler(self, clientsock):
         msg = network.receive(clientsock)
         
-        if msg is None:
+        if msg is None or (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
             return
 
         if msg[TYPE] == JOIN:
@@ -111,10 +114,10 @@ class Node(object):
                 SEND_GUID: self.GUID,
                 DEST_IP: msg[SEND_IP],
                 DEST_GUID: network.generate_guid(),
-                ROUTING: self.routTab.getTable()            # ROUT_ROB
+                ROUTING: self.routTab.getTable() 
             }
             network.send(joinAck[DEST_IP], **joinAck)
-            self.routTab.addPeer(GUID = joinAck[DEST_GUID], IPAddr = joinAck[DEST_IP])  # ROUT_ROB
+            self.routTab.addPeer(GUID = joinAck[DEST_GUID], IPAddr = joinAck[DEST_IP])
 
         if msg[TYPE] == PING:
             pongMsg = {
@@ -154,7 +157,7 @@ class Node(object):
                 with self.repQuerLock:
                     self.repQuer.add(msg[QUERY_ID])
 
-                for neighbours in self.routTab.neighbours():   # ROUT_ROB
+                for neighbours in self.routTab.neighbours():
                     msg[DEST_IP] = neighbours[0]
                     msg[DEST_GUID] = neighbours[1]
                     if msg[DEST_GUID] != msg[SEND_GUID]:
@@ -196,13 +199,17 @@ class Node(object):
     def requestTransfer(self, tid, numChunks, msg):
         start = tid
         while start < numChunks:
-            ok = True
+            
+            with self.chunkLeftLock:
+                ok = (start in self.chunkLeft[msg[REQUEST_ID]][1])
             msg[CHUNK_NO] = start
+
             while ok:
                 network.send(msg[DEST_IP], **msg)
-                time.sleep(15)
+                time.sleep(TRANS_WAIT)
                 with self.chunkLeftLock:
                     ok = (start in self.chunkLeft[msg[REQUEST_ID]][1])
+            
             start += NUM_THREADS
 
     # Sends a Query for the required content to all its neighbours
@@ -224,7 +231,7 @@ class Node(object):
         }
         self.queryCnt += 1
 
-        for neighbours in self.routTab.neighbours():   # ROUT_ROB
+        for neighbours in self.routTab.neighbours():
                 queryMsg[DEST_IP] = neighbours[0]
                 queryMsg[DEST_GUID] = neighbours[1]
                 network.send(queryMsg[DEST_IP], **queryMsg)
@@ -261,11 +268,11 @@ class Node(object):
             DEST_IP: result[SEND_IP],
             DEST_GUID: result[SEND_GUID],
             REQUEST_ID: self.reqCnt,
-            FILE_ID: result[RESULTS][resNum][FILE_ID]        # FILESYS_SAT
+            FILE_ID: result[RESULTS][resNum][FILE_ID]        
         }
         self.reqCnt += 1
 
-        numChunks = result[RESULTS][resNum][NUM_CHUNKS]         # FILESYS_SAT
+        numChunks = result[RESULTS][resNum][NUM_CHUNKS]         
         with self.chunkLeftLock:
             self.chunkLeft[transferReq[REQUEST_ID]] = (numChunks, set())
             for i in range(numChunks):
@@ -275,7 +282,9 @@ class Node(object):
             reqCopy = copy.deepcopy(transferReq)
             thr = threading.Thread(target=self.requestTransfer, 
                             args=(ind, numChunks, reqCopy))
+            thr.daemon = True
             thr.start()
+        print("Request ID: {}".format(transferReq[REQUEST_ID]))
 
     # Check the progress of the transfer
     def checkProgress(self, reqId):
@@ -284,22 +293,55 @@ class Node(object):
         
         if prog is not None:
             print("Done {} / {}".format(prog[0] - len(prog[1]), prog[0]))
-        elif self.fileSys.isFinished(reqId):          # FILESYS_SAT
+        elif self.fileSys.isFinished(reqId):          
             print("Download finished")
         else:
             print("Incorrect ID")
 
     # Share Files
     def shareContent(self, path):
-        self.fileSys.add(path)                  # FILESYS_SAT
+        self.fileSys.add(path)                  
 
     # Remove Shared Content
     def removeShare(self, path):
-        self.fileSys.remove(path)               # FILESYS_SAT
+        self.fileSys.remove(path)               
 
+# Display help for the commands
+def displayHelp():
+    print("{}: display all options".format(HELP))
+    print("{} <query>: intiate a search across the peers".format(SEARCH_QUERY))
+    print("{} <qid>: display results till now".format(DISPLAY))
+    print("{} <qid> <peerNum> <resNum>: choose a result to download".format(CHOOSE))
+    print("{} <reqId>: shows the progress of the download".format(PROGRESS))
+    print("{} <reqId>: aborts the download".format(ABORT))
 
-def parseCmds(cmd):
-    pass
+# Parse the input commmands
+def parseCmds(cmd, peer):
+    if len(cmd) < 1:
+        return
+    
+    elif cmd[0].lower() == HELP:
+        displayHelp()
+    
+    elif cmd[0].lower() == SEARCH_QUERY and len(cmd) > 1:
+        query = ' '.join(cmd[1:])
+        peer.findContent(query)
+
+    elif cmd[0].lower() == DISPLAY and len(cmd) == 2:
+        peer.displayResults(cmd[1])
+
+    elif cmd[0].lower() == CHOOSE and len(cmd) == 4:
+        peer.chooseResults(cmd[1], int(cmd[2]) - 1, int(cmd[3]) - 1) 
+
+    elif cmd[0].lower() == PROGRESS and len(cmd) == 2:
+        peer.checkProgress(int(cmd[1]))
+
+    elif cmd[0].lower() == ABORT and len(cmd) == 2:
+        pass
+
+    else:
+        print("Wrong Command or format")
+        displayHelp()
 
 
 if __name__ == '__main__':
@@ -315,6 +357,6 @@ if __name__ == '__main__':
 
     while True:
         cmd = input("> ").split()
-        parseCmds(cmd)
+        parseCmds(cmd, peer)
 
 

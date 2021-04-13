@@ -9,11 +9,11 @@ from constants import *
 #TODO: read about the strategy to manage churn and limit the RT size, lookat how gnutella does it maybe
 
 class routingTable(object):
-    def __init__(self, updateFreq=10, inactiveLimit=10):
+    def __init__(self):
         self.myGUID = 0
         self.filename = 'RT.json'
-        self.updateFreq = updateFreq
-        self.inactiveLimit = inactiveLimit
+        self.updateFreq = UPDATE_FREQ
+        self.inactiveLimit = INACTIVE_LIMIT
 
         self.mutex = threading.Lock() #for locking rt
         self.mutexPP = threading.Lock() #for locking sentPing and recvPong
@@ -31,6 +31,7 @@ class routingTable(object):
 
         self.StayActive = True #Destructor sets it to false, thread then exits loop and joins
         self.thread = threading.Thread(target=self.periodicActivityCheck, args=())
+        self.thread.daemon = True
         self.thread.start()
         
     def __del__(self):
@@ -62,11 +63,11 @@ class routingTable(object):
         else:
             #Since we are inserting new node, we assume its active
             self.RT[GUID] = dict()
-            self.RT[GUID]['IPAddr'] = IPAddr
-            self.RT[GUID]['Port'] = Port
-            self.RT[GUID]['ActiveBool'] = True
-            self.RT[GUID]['InactiveTime'] = 0
-            self.RT[GUID]['IsCentre'] = IsCentre
+            self.RT[GUID][IP_ADDR] = IPAddr
+            self.RT[GUID][RT_PORT] = Port
+            self.RT[GUID][RT_ISACTIVE] = True
+            self.RT[GUID][RT_INACTIVE] = 0
+            self.RT[GUID][RT_ISCENTRE] = IsCentre
             self.local_save()
             self.mutex.release()
             
@@ -81,11 +82,11 @@ class routingTable(object):
         #Used to update change in port/ipaddress and to reset bool and inactivetime.
         self.mutex.acquire()
         if GUID in self.RT.keys():
-            self.RT[GUID]['IPAddr'] = IPAddr
-            self.RT[GUID]['Port'] = Port
-            self.RT[GUID]['ActiveBool'] = ActiveBool
-            self.RT[GUID]['InactiveTime'] = InactiveTime
-            self.RT[GUID]['IsCentre'] = IsCentre
+            self.RT[GUID][IP_ADDR] = IPAddr
+            self.RT[GUID][RT_PORT] = Port
+            self.RT[GUID][RT_ISACTIVE] = ActiveBool
+            self.RT[GUID][RT_INACTIVE] = InactiveTime
+            self.RT[GUID][RT_ISCENTRE] = IsCentre
 
             self.local_save()
             self.mutex.release()
@@ -128,7 +129,7 @@ class routingTable(object):
         self.mutex.acquire()
         nbr = []
         for guid in self.RT:
-            nbr.append((self.RT[guid]['IPAddr'], guid))
+            nbr.append((self.RT[guid][IP_ADDR], guid))
         self.mutex.release()
         return nbr
 
@@ -146,12 +147,13 @@ class routingTable(object):
                 self.mutex.release()
 
                 if guid in self.recvPong:
-                    self.updatePeer(GUID=guid, IPAddr=obj['IPAddr'], Port=obj['Port'], IsCentre=obj['IsCentre'])
+                    self.updatePeer(GUID=guid, IPAddr=obj[IP_ADDR], Port=obj[RT_PORT], IsCentre=obj[RT_ISCENTRE])
                 else:
-                    if obj['InactiveTime']+1>self.inactiveLimit:
+                    if obj[RT_INACTIVE]+1>self.inactiveLimit:
                         self.deletePeer(guid)
                     else:
-                        self.updatePeer(GUID=guid, IPAddr=obj['IPAddr'], Port=obj['Port'], ActiveBool=False, InactiveTime=obj['InactiveTime']+1, IsCentre=obj['IsCentre'])
+                        self.updatePeer(GUID=guid, IPAddr=obj[IP_ADDR], Port=obj[RT_PORT], 
+                        ActiveBool=False, InactiveTime=obj[RT_INACTIVE]+1, IsCentre=obj[RT_ISCENTRE])
 
             self.sentPing = []
             self.recvPong = []
@@ -159,7 +161,7 @@ class routingTable(object):
 
             nbr = self.neighbours()
             for (guid, IPAddr) in nbr:
-                self.sendPing(guid, self.RT[guid]['IPAddr'])
+                self.sendPing(guid, self.RT[guid][IP_ADDR])
 
     def findNearestGUID(self, GUID):
         pass

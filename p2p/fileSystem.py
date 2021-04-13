@@ -1,4 +1,4 @@
-import p2p.constants as constants
+import constants
 import sys
 import os
 import mysql.connector
@@ -6,6 +6,13 @@ from mysql.connector.errors import ProgrammingError
 from binaryornot.check import is_binary
 import hashlib
 import math
+
+# TODO: Entry for DOWNLOADS
+# TODO: Set ParentID and RequestId properly
+# TODO: modify queries to check status
+# TODO: add function to update status using fileID
+# TODO: return correctly the response in search()
+# TODO: request removal of replication when removing content
 
 
 class fileSystem(object):
@@ -19,6 +26,7 @@ class fileSystem(object):
     def __init__(self):
         super().__init__()
         self.reqIdDict = {}
+        self.downloadComplete = {}
         self.fsLocation = constants.FILESYS_PATH
         try:
             self.fs_db = mysql.connector.connect(
@@ -45,7 +53,7 @@ class fileSystem(object):
             query = "CREATE TABLE "+constants.DB_TABLE_FILE+" ( "\
                 + constants.FT_ID + " INT AUTO_INCREMENT PRIMARY KEY,"\
                 + constants.FT_NAME+" VARCHAR(100) NOT NULL, "\
-                + constants.FT_PATH+" VARCHAR(255), "\
+                + constants.FT_PATH+" VARCHAR(255) UNIQUE, "\
                 + constants.FT_SIZE+" INT(255), "\
                 + constants.FT_CHECKSUM + " VARCHAR(255), "\
                 + constants.FT_PARENTID + " VARCHAR(255), "\
@@ -75,6 +83,12 @@ class fileSystem(object):
             print(Ex)
             self.fs_db.rollback()
 
+    def remove_entry(self, table_name, what, what_value):
+        query = "DELETE from "+table_name+" where "+what+" = '"+what_value+"'"
+        print(query)
+        self.execute_query(query)
+        return True
+
     def view_table(self, table_name):
         query = "SELECT * FROM "+table_name
         print(query)
@@ -101,10 +115,10 @@ class fileSystem(object):
             result = self.fs_db_cursor.fetchall()
             for r in result:
                 response.append({
-                    'id': r[0],
-                    'name': r[1],
-                    'size': r[2],
-                    'checksum': r[3]
+                    constants.FILE_ID: r[0],
+                    constants.FT_NAME: r[1],
+                    constants.NUM_CHUNKS: math.ceil(r[2]/constants.CHUNK_SIZE),
+                    constants.FT_CHECKSUM: r[3]
                 })
                 # print(r)
         except Exception as Ex:
@@ -201,6 +215,17 @@ class fileSystem(object):
         md5_hash.update(chunk)
         return md5_hash.hexdigest()
 
+    def checksum_large(self, path):
+        md5_obj = hashlib.md5()
+        blockSize = constants.CHUNK_SIZE
+        with open(path, "rb") as a:
+            chunk = a.read(constants.CHUNK_SIZE)
+            while chunk:
+                md5_obj.update(chunk)
+                chunk = a.read(constants.CHUNK_SIZE)
+            cSum = md5_obj.hexdigest()
+        return cSum
+
     def writeChunk(self, mssg):
         content = mssg[constants.CONTENT]
         fileName = str(mssg[constants.REQUEST_ID])+"_" + \
@@ -225,7 +250,11 @@ class fileSystem(object):
     def done(self, reqId):
         folderName = self.get_foldername_using_reqId(reqId)
         filename = self.reqIdDict[reqId]
-        self.join_chunks(folderName, "test"+filename)
+        self.join_chunks(folderName, filename)
+        # TODO insert into table
+        # Use this downloadComplete to point to the fileId
+        self.downloadComplete[reqId] = filename
+        self.reqIdDict.popitem(reqId)
         return True
 
     def get_foldername_using_reqId(self, request_id):
@@ -244,14 +273,47 @@ class fileSystem(object):
                 with open(filepath, 'rb') as input:
                     output.write(input.read(constants.CHUNK_SIZE))
 
-    # def test_done(self):
-    #     for i in range(math.ceil(16712//constants.CHUNK_SIZE)):
-    #         chunk = self.get_content(4, i)
-    #         mssg = {
-    #             'Data': chunk,
-    #             'Chunk number': i,
-    #             'Request ID': 124
-    #         }
-    #         self.writeChunk(mssg)
-    #     print(self.done(124))
-    #     pass
+    def isFinished(self, reqId):
+        if reqId not in self.downloadComplete.keys():
+            return False
+        else:
+            return True
+
+    def add(self, path):
+        """
+            Make content available for download
+            Add entry to table with Status as UPLOAD
+
+            Returns 
+                TRUE on success
+                FALSE on failure
+        """
+        if (not os.path.exists(path)) or (not os.path.isfile(path)) or (not is_binary(path)):
+            return False
+        else:
+            filename = os.path.splitext(path)[0].split("/")[-1]
+            file_stat = os.stat(path)
+            size = file_stat.st_size
+            cSum = self.checksum_large(path)
+            parentId = "0"
+            randId = 0
+            status = constants.FS_UPLOADED
+            replication = None
+            self.add_entry(constants.DB_TABLE_FILE, filename, path,
+                           size, cSum, parentId, randId, status, replication)
+            return True
+
+    def removeShare(self, path):
+        self.remove_entry(constants.DB_TABLE_FILE, constants.FT_PATH, path)
+        return True
+        # def test_done(self):
+        #     for i in range(math.ceil(16712//constants.CHUNK_SIZE)):
+        #         chunk = self.get_content(4, i)
+        #         mssg = {
+        #             'Data': chunk,
+        #             'Chunk number': i,
+        #             'Request ID': 124
+        #         }
+        #         self.writeChunk(mssg)
+        #     print(self.done(124))
+        #     pass

@@ -1,96 +1,88 @@
-# End character for send/receive messages.
-EOM_CHAR = 0x04.to_bytes(1, 'big')
-# Default Port for creating socket connection.
-APP_PORT = 4000
-# Default encoding.
-ENCODING = 'utf-8'
-# Storage path for Hashed FileSystem
-FILESYS_PATH = "fs.pkl"
-# Chunk Size (in Bytes) 4096 bytes = 4KB
-CHUNK_SIZE = 4096
+import logging
+import daiquiri
 
-# STATUSES FOR FILESYSTEM
-# Uploaded by current node
-FS_UPLOADED = "UPL"
-# Replication - Download Complete
-FS_REPLICATION_COMPLETE = "RPC"
-# Replication - Download In Progress
-FS_REPLICATION_PROGRESS = "RIP"
-# Download Complete
-FS_DOWNLOAD_COMPLETE = "FDC"
-# Download In-Progress
-FS_DOWNLOAD_PROGRESS = "FDP"
+## Logger Constants ##
 
-# DATABASE DETAILS
-DB_HOST = "localhost"
-DB_USERNAME = "user"
-DB_PASSWORD = "pass"
-DB_NAME = "fsys"
+daiquiri.setup(level=logging.INFO)
+LOGGER = daiquiri.getLogger(__name__)
+LOGGER.info("Logger Initialized!")
 
-# MYMYSQL PASS 1234
+#################### Network Constants ##########################################
 
-# TABLE DETAILS
-DB_TABLE_FILE = "FILETABLE"
-FT_NAME = "name"
-FT_PATH = "path"
-FT_SIZE = "size"
-FT_CHECKSUM = "checksum"
-FT_PARENTID = "parent_id"
-FT_RANDOMID = "random_id"
-FT_STATUS = "status"
-FT_REPLICATED_TO = "replication_node"
-FT_ID = "ID"
+APP_PORT = 4000             # Default Port for creating socket connection.
+ENCODING = 'utf-8'          # Default encoding.
+MY_IP = '127.0.0.1'         # My IP address in the network
+SOCKET_TIMEOUT = 10.0       # Time out for receiving message
+MSG_SIZE = 4096             # Amount to receive in one go
+SOCK_SLEEP = 0.001
 
+#################### FileSystem Constants #######################################
+
+FILESYS_PATH = "fs.pkl"         #
+CHUNK_SIZE = 65536              # Chunk Size (in Bytes) 65536 bytes = 64KB
+
+# Statuses
+FS_UPLOADED = "UPL"                     # Uploaded by current node
+FS_REPLICATION_COMPLETE = "RPC"         # Replication - Download Complete
+FS_REPLICATION_PROGRESS = "RIP"         # Replication - Download In Progress
+FS_DOWNLOAD_COMPLETE = "FDC"            # Download Complete
+FS_DOWNLOAD_PROGRESS = "FDP"            # Download In-Progress
+
+# Database Details
+DB_HOST = "localhost"                   # The location of the database
+DB_USERNAME = "user"                    # Usernmae for accessing the database
+DB_PASSWORD = "pass"                    # Password for accessing the database
+DB_NAME = "fsys"                        # Name of the database
+
+# Table
+DB_TABLE_FILE = "FILETABLE"             # 
+FT_NAME = "name"                        #
+FT_PATH = "path"                        #
+FT_SIZE = "size"                        #
+FT_CHECKSUM = "checksum"                #
+FT_PARENTID = "parent_id"               #
+FT_RANDOMID = "random_id"               #
+FT_STATUS = "status"                    #
+FT_REPLICATED_TO = "replication_node"   #
+FT_ID = "ID"                            #
+
+# Description of CONTENT, the attribute that holds the actual data transferred
 # CONTENT = {
 #     CHUNK,
 #     FILENAME,
 #     CHECKSUM
 # }
-# Description of CONTENT
-CNT_CHUNK = "chunk"
-CNT_FILENAME = "filename"
-CNT_CHECKSUM = "checksum"
-CNT_FILEPATH = "filepath"
-# Socket timeout.
-SOCKET_TIMEOUT = 10.0
-# chunk size
-CHUNK_SIZE = 4096
-# My IP address in the network
-MY_IP = '127.0.0.1'
-# Num threads for requesting content
-NUM_THREADS = 10
+CNT_CHUNK = "chunk"                     #   ChunkNo. (Int)
+CNT_FILENAME = "filename"               #   FileNmae (String)
+CNT_CHECKSUM = "checksum"               #   Checksum (String)
+CNT_FILEPATH = "filepath"               #   Filepath (String)
 
-# Message related constant
-JOIN = 'Join'
-JOIN_ACK = 'Join Ack'
-PING = 'Ping'
-PONG = 'Pong'
-QUERY = 'Query'
-QUERY_RESP = 'Query Response'
-TRANSFER_REQ = 'Transfer Request'
-TRANSFER_FILE = 'Transfer File'
+################## Message Constants ######################################3
 
-TYPE = 'Type'
-SEND_IP = 'Sender IP'
-SEND_GUID = 'Sender GUID'
-DEST_IP = 'Destination IP'
-DEST_GUID = 'Destination GUID'
+# Message Types
+JOIN = 'Join'                           #   A message to join the network
+JOIN_ACK = 'Join Ack'                   #   A message acknowledging the join with the GUID
+PING = 'Ping'                           #   A ping message, heartbeat
+PONG = 'Pong'                           #   Response to the ping, typically
+QUERY = 'Query'                         #   Contains the query of the user
+QUERY_RESP = 'Query Response'           #   Response to the query
+TRANSFER_REQ = 'Transfer Request'       #   Request for a transfer of a chunk
+TRANSFER_FILE = 'Transfer File'         #   The actual content of the transfer
 
-ROUTING = 'Routing Table'
+# Common Attributes
+TYPE = 'Type'                           #   Type of the message (String)
+SEND_IP = 'Sender IP'                   #   Sender's IP     (String)
+SEND_GUID = 'Sender GUID'               #   Sender's GUID   (String)
+DEST_IP = 'Destination IP'              #   Destination IP  (String)
+DEST_GUID = 'Destination GUID'          #   Destination     (String)
 
-SOURCE_IP = 'Source IP'
-SOURCE_GUID = 'Source GUID'
-SEARCH = 'Search'
-QUERY_ID = 'Query ID'
+# Message Attributes
 
-RESULTS = 'Results'
-
-FILE_ID = 'File ID'
-CHUNK_NO = 'Chunk number'
-NUM_CHUNKS = 'Number Chunks'
-REQUEST_ID = 'Request ID'
-
-CONTENT = 'Data'
+# JOIN MESSAGE = {
+#     TYPE,
+#     SEND_IP,
+#     DEST_IP,
+# }
 
 # JOIN MESSAGE = {
 #     TYPE,
@@ -106,6 +98,7 @@ CONTENT = 'Data'
 #     DEST_GUID,
 #     ROUTING,
 # }
+ROUTING = 'Routing Table'               # The Routing Table ({IP, GUID})
 
 # PING MESSAGE = {
 #     TYPE,
@@ -134,6 +127,10 @@ CONTENT = 'Data'
 #     SEARCH
 #     QUERY_ID
 # }
+SOURCE_IP = 'Source IP'                 # Ip of the query source (String)
+SOURCE_GUID = 'Source GUID'             # GUID of the query source (String)
+SEARCH = 'Search'                       # The query to search (String)
+QUERY_ID = 'Query ID'                   # The unique query id of the query (String)
 
 # QUERY_RESP MESSAGE = {
 #     TYPE,
@@ -144,6 +141,9 @@ CONTENT = 'Data'
 #     QUERY_ID,
 #     RESULTS,
 # }
+RESULTS = 'Results'                     # The Results received from the file system 
+                                        # ([{FILE_ID, FT_NAME, NUM_CHUNKS, FT_CHECKSUM}, ])
+NUM_CHUNKS = 'Total Chunks'             # The total number of chunks in the file (Int)
 
 # TRANSFER_REQ = {
 #     TYPE,
@@ -155,6 +155,9 @@ CONTENT = 'Data'
 #     FILE_ID,
 #     CHUNK_NO,
 # }
+REQUEST_ID = 'Request ID'
+FILE_ID = 'File ID'
+CHUNK_NO = 'Chunk number'
 
 # TRANSFER_FILE = {
 #     TYPE,
@@ -166,3 +169,28 @@ CONTENT = 'Data'
 #     CHUNK_NO,
 #     CONTENT,
 # }
+CONTENT = 'Data'
+
+############################# Routing Table Constants ###############
+UPDATE_FREQ = 10
+INACTIVE_LIMIT = 5
+
+IP_ADDR = 'IPAddr'
+RT_PORT = 'Port'
+RT_ISACTIVE = 'ActiveBool'
+RT_INACTIVE = 'InactiveTime'
+RT_ISCENTRE = 'IsCentre'
+
+
+############################# Node Constants ########################
+LISTEN_QUEUE = 10               # The size of the connections queue
+NUM_THREADS = 10                # The number of threads to use for the transfer
+TRANS_WAIT = 10                 # The amount of time an individual thread waits before retrying when transferring data
+
+# Commands
+HELP = 'help'                   # The Help Command
+SEARCH_QUERY = 'search'         # Command to initiate search
+DISPLAY = 'show'                # Command to display the results
+CHOOSE = 'down'                 # Command to download the results
+PROGRESS = 'progress'           # Command to display the progress
+ABORT = 'abort'                 # Abort the download
