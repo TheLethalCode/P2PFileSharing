@@ -12,7 +12,7 @@ LOGGER.info("Logger Initialized!")
 APP_PORT = 4000             # Default Port for creating socket connection.
 # ENCODING = 'utf-16'          # Default encoding.
 ENCODING = 'utf-8'
-MY_IP = '192.168.191.78'         # My IP address in the network
+MY_IP = '192.168.191.232'         # My IP address in the network
 SOCKET_TIMEOUT = 10.0       # Time out for receiving message
 MSG_SIZE = 4096             # Amount to receive in one go
 SOCK_SLEEP = 0.001

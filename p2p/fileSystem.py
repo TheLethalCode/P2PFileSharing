@@ -1,4 +1,4 @@
-import p2p.constants as constants
+import constants
 import sys
 import os
 import base64

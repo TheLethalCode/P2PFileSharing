@@ -3,8 +3,8 @@ import os
 import sys
 import time
 import threading
-import p2p.network as network
-from p2p.constants import *
+import network
+from constants import *
 
 
 class routingTable(object):
