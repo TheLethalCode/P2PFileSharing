@@ -13,9 +13,8 @@ from p2p.fileSystem import fileSystem
 # TODO:- Garbage collection of expired results, queries, transfer requests (Or keep a limit)
 # TODO:- Save state periodically and load
 # TODO:- Make the transfer for each thread faster by using an intermediate signal of sorts
-# without waiting for the timeout and recheck
+# without waiting for the timeout and recheck, handle abort properly
 # TODO:- Error Handling and logging
-# TODO:- Initialise, Abort
 
 
 class Node(object):
@@ -302,13 +301,20 @@ class Node(object):
         else:
             print("Incorrect ID")
 
+    # Abort download
+    def abort(self, reqId):
+        with self.chunkLeftLock:
+            del self.chunkLeftLock[reqId]
+        self.fileSys.abort_download(reqId)
+
     # Share Files
     def shareContent(self, path):
-        self.fileSys.add(path)
+        if not self.fileSys.add(path):
+            print("Please specify a path to a binary file")
 
     # Remove Shared Content
     def removeShare(self, path):
-        self.fileSys.remove(path)
+        self.fileSys.removeShare(path)
 
 # Display help for the commands
 def displayHelp():
@@ -318,6 +324,8 @@ def displayHelp():
     print("{} <qid> <peerNum> <resNum>: choose a result to download".format(CHOOSE))
     print("{} <reqId>: shows the progress of the download".format(PROGRESS))
     print("{} <reqId>: aborts the download".format(ABORT))
+    print("{} <path>: share the specified path with the network".format(SHARE))
+    print("{} <path>: remove the shared content from the network".format(UNSHARE))
 
 # Parse the input commmandss
 def parseCmds(cmd, peer):
@@ -341,7 +349,13 @@ def parseCmds(cmd, peer):
         peer.checkProgress(int(cmd[1]))
 
     elif cmd[0].lower() == ABORT and len(cmd) == 2:
-        pass
+        peer.abort()
+
+    elif cmd[0].lower() == SHARE and len(cmd) == 2:
+        peer.shareContent(cmd[1])
+    
+    elif cmd[0].lower() == UNSHARE and len(cmd) == 2:
+        peer.removeShare(cmd[1])
 
     else:
         print("Wrong Command or format")

@@ -196,3 +196,5 @@ DISPLAY = 'show'                # Command to display the results
 CHOOSE = 'down'                 # Command to download the results
 PROGRESS = 'progress'           # Command to display the progress
 ABORT = 'abort'                 # Abort the download
+SHARE = 'share'                 # Share Content
+UNSHARE = 'remove'              # Unshare Content
