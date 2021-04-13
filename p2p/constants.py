@@ -10,9 +10,9 @@ LOGGER.info("Logger Initialized!")
 #################### Network Constants ##########################################
 
 APP_PORT = 4000             # Default Port for creating socket connection.
-# ENCODING = 'utf-8'          # Default encoding.
-ENCODING = 'ASCII'
-MY_IP = '192.168.191.4'         # My IP address in the network
+# ENCODING = 'utf-16'          # Default encoding.
+ENCODING = 'utf-8'
+MY_IP = '192.168.191.78'         # My IP address in the network
 SOCKET_TIMEOUT = 10.0       # Time out for receiving message
 MSG_SIZE = 4096             # Amount to receive in one go
 SOCK_SLEEP = 0.001
@@ -31,8 +31,8 @@ FS_DOWNLOAD_PROGRESS = "FDP"            # Download In-Progress
 
 # Database Details
 DB_HOST = "localhost"                   # The location of the database
-DB_USERNAME = "user"                    # Usernmae for accessing the database
-DB_PASSWORD = "pass"                    # Password for accessing the database
+DB_USERNAME = "root"                    # Usernmae for accessing the database
+DB_PASSWORD = "Shivam@3689"                    # Password for accessing the database
 DB_NAME = "fsys"                        # Name of the database
 
 # Table

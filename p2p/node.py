@@ -1,3 +1,4 @@
+from constants import TRANSFER_FILE, CHUNK_NO
 import socket
 import threading
 import time
@@ -106,11 +107,11 @@ class Node(object):
     # Handles the different type of incoming message
     def msgHandler(self, clientsock):
         msg = network.receive(clientsock)
-
+        print(msg is None, DEST_GUID in msg, msg[DEST_GUID] != self.GUID, self.GUID)
         if msg is None or (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
             return
 
-        print(msg)
+        print(f'type={msg[TYPE]}')
 
         if msg[TYPE] == JOIN:
             joinAck = {
@@ -180,20 +181,22 @@ class Node(object):
                 SEND_IP: MY_IP,
                 SEND_GUID: self.GUID,
                 DEST_IP: msg[SEND_IP],
-                DEST_GUID: msg[DEST_GUID],
+                DEST_GUID: msg[SEND_GUID],
                 REQUEST_ID: msg[REQUEST_ID],
+                CHUNK_NO: msg[CHUNK_NO],
                 CONTENT: self.fileSys.getContent(msg[FILE_ID], msg[CHUNK_NO])
             }
             network.send(msg[SEND_IP], **fileTranMsg)
 
         elif msg[TYPE] == TRANSFER_FILE:
             # Acquire Lock
+            print("here\n")
             with self.chunkLeftLock:
 
                 # If the request is not yet done and the write to the file system is successful
                 if msg[CHUNK_NO] in self.chunkLeft.get(msg[REQUEST_ID], (0, set()))[1] \
                         and self.fileSys.writeChunk(msg):
-
+                    print("here2\n")
                     self.chunkLeft[msg[REQUEST_ID]][1].remove(msg[CHUNK_NO])
 
                     # If all the chunks are done, inform filesys of the completion

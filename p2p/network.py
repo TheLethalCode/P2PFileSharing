@@ -3,6 +3,7 @@ import socket
 import time
 from json.decoder import JSONDecodeError
 import uuid
+from constants import TRANSFER_FILE, TYPE
 
 from constants import MSG_SIZE, ENCODING, SOCK_SLEEP, APP_PORT, SOCKET_TIMEOUT
 
@@ -19,7 +20,8 @@ def send(ip: str, **data):
     try:
         data = dict(data)
         data = json.dumps(data)
-        data = len(data).to_bytes(4, 'big') + data.encode(ENCODING)
+        data = data.encode(ENCODING)
+        data = len(data).to_bytes(4, 'big') + data
         socket = _get_socket(ip)
         socket.sendall(data)
         return True
@@ -49,6 +51,7 @@ def receive(socket: socket):
         if temp != b'':
             if length is None and len(temp) >= 4:
                 length = int.from_bytes(temp[:4], 'big')
+                # print(length)
                 temp = temp[4:]
 
             if length is not None:
@@ -60,6 +63,7 @@ def receive(socket: socket):
                     buff += temp[:length]
                     try:
                         buff = buff.decode(ENCODING)
+                        # print(json.loads(buff))
                         return json.loads(buff)
 
                     except JSONDecodeError as err:

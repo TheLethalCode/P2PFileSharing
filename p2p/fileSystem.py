@@ -1,6 +1,7 @@
 import constants
 import sys
 import os
+import base64
 import mysql.connector
 from mysql.connector.errors import ProgrammingError
 from binaryornot.check import is_binary
@@ -150,7 +151,7 @@ class fileSystem(object):
                     f.seek(constants.CHUNK_SIZE * chunkNumber, 0)
                     readChunk = f.read(constants.CHUNK_SIZE)
                     return {
-                        constants.CNT_CHUNK: str(readChunk, encoding=constants.ENCODING),
+                        constants.CNT_CHUNK: readChunk,
                         constants.CNT_FILENAME: fileDetails[constants.FT_NAME],
                         constants.CNT_CHECKSUM: self.checksum(readChunk),
                         constants.CNT_FILEPATH: fileDetails[constants.FT_PATH]
@@ -230,10 +231,11 @@ class fileSystem(object):
         content = mssg[constants.CONTENT]
         fileName = str(mssg[constants.REQUEST_ID])+"_" + \
             content[constants.CNT_FILENAME]
-        chunk = bytes(content[constants.CNT_CHUNK], constants.ENCODING)
+        chunk = content[constants.CNT_CHUNK]
         filepath = content[constants.CNT_FILEPATH]
         checkSum_rec = content[constants.CNT_CHECKSUM]
-        if self.checksum(chunk) != checkSum_rec:
+        print(self.checksum(chunk), checkSum_rec, self.checksum(chunk) == checkSum_rec)
+        if self.checksum(chunk) == checkSum_rec:
             return False
         else:
             if mssg[constants.REQUEST_ID] not in self.reqIdDict.keys():
@@ -254,7 +256,7 @@ class fileSystem(object):
         # TODO insert into table
         # Use this downloadComplete to point to the fileId
         self.downloadComplete[reqId] = filename
-        self.reqIdDict.popitem(reqId)
+        self.reqIdDict.pop(reqId)
         return True
 
     def get_foldername_using_reqId(self, request_id):
