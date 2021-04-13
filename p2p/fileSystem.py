@@ -1,14 +1,16 @@
-import constants as constants
-import sys
-import os
-import base64
-import mysql.connector
-import mysql.connector.errors as connector_errors
-from binaryornot.check import is_binary
-import hashlib
-import math
-import sqlite3
 import shutil
+import sqlite3
+import math
+import hashlib
+from binaryornot.check import is_binary
+import mysql.connector.errors as connector_errors
+import mysql.connector
+import base64
+import os
+import sys
+import constants
+import constants as constants
+
 # TODO: Entry for DOWNLOADS
 # TODO: abort on some request id
 # TODO: Set ParentID and RequestId properly
@@ -32,7 +34,8 @@ class fileSystem(object):
         self.downloadComplete = {}
         self.fsLocation = constants.FILESYS_PATH
         try:
-            self.fs_db = sqlite3.connect(constants.DB_NAME)
+            self.fs_db = sqlite3.connect(
+                constants.DB_NAME, check_same_thread=False)
             self.fs_db_cursor = self.fs_db.cursor()
             print("DATABASE EXISTS")
             print("CREATING TABLE")
