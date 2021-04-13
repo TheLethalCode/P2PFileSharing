@@ -28,6 +28,7 @@ class routingTable(object):
 
         self.StayActive = True #Destructor sets it to false, thread then exits loop and joins
         self.thread = threading.Thread(target=self.periodicActivityCheck, args=())
+        self.thread.daemon = True
         self.thread.start()
         
     def __del__(self):

@@ -21,7 +21,7 @@ class Node(object):
     def __init__(self, isBootstrap = False):
 
         self.routTab = routingTable()
-        self.fileSys = fileSystem()
+        self.fileSys = None
         
         # Handle the case of bootstrapping node
         self.isJoined = isBootstrap
@@ -32,11 +32,12 @@ class Node(object):
 
         # Permanent socket for the APP
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind('', APP_PORT)
+        self.sock.bind(('', APP_PORT))
         self.sock.listen(LISTEN_QUEUE)
 
         # Listen at the APP_PORT
         self.listener = threading.Thread(target=self.listen)
+        self.listener.daemon = True
 
         # Responses for query | queryRes[qId] = [query_rsp_msgs]
         self.queryCnt = 0
@@ -96,6 +97,7 @@ class Node(object):
         while True:
             clientsock, _ = self.sock.accept()
             handleMsg = threading.Thread(target=self.msgHandler, args=(clientsock,))
+            handleMsg.daemon = True
             handleMsg.start()
 
     # Handles the different type of incoming message
@@ -280,6 +282,7 @@ class Node(object):
             reqCopy = copy.deepcopy(transferReq)
             thr = threading.Thread(target=self.requestTransfer, 
                             args=(ind, numChunks, reqCopy))
+            thr.daemon = True
             thr.start()
         print("Request ID: {}".format(transferReq[REQUEST_ID]))
 
