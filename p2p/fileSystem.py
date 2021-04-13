@@ -1,4 +1,4 @@
-import p2p.constants as constants
+import constants
 import sys
 import os
 import mysql.connector
@@ -88,7 +88,6 @@ class fileSystem(object):
         print(query)
         self.execute_query(query)
         return True
-        pass
 
     def view_table(self, table_name):
         query = "SELECT * FROM "+table_name

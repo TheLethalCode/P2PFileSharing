@@ -9,7 +9,6 @@ from constants import MSG_SIZE, ENCODING, SOCK_SLEEP, APP_PORT, SOCKET_TIMEOUT
 
 def send(ip: str, **data):
     """Send data to IP (default PORT).
-
     Args:
         ip (str): IP address of the receipent.
         data (key-value): data encode-able into JSON for sending.

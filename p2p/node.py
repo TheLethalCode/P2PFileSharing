@@ -102,7 +102,7 @@ class Node(object):
     def msgHandler(self, clientsock):
         msg = network.receive(clientsock)
         
-        if msg is None:
+        if msg is None or msg[DEST_GUID] != self.GUID:
             return
 
         if msg[TYPE] == JOIN:
