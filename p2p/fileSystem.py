@@ -7,8 +7,9 @@ import mysql.connector.errors as connector_errors
 import mysql.connector
 import base64
 import os
+import re
 import sys
-import constants
+# import constants
 import constants as constants
 import threading
 
@@ -38,6 +39,10 @@ class fileSystem(object):
         self.fileIdcache = {}
         self.databaseLock = threading.RLock()
         self.fsLocation = constants.FILESYS_PATH
+        if not os.path.exists(constants.DOWNLOAD_FOLDER):
+            os.makedirs(constants.DOWNLOAD_FOLDER)
+        if not os.path.exists(constants.INCOMPLETE_FOLDER):
+            os.makedirs(constants.INCOMPLETE_FOLDER)
         try:
             self.fs_db = sqlite3.connect(
                 constants.DB_NAME, check_same_thread=False)
@@ -261,11 +266,11 @@ class fileSystem(object):
 
     def done(self, reqId):
         folderName = self.get_foldername_using_reqId(reqId)
-        filename = self.reqIdDict[reqId]
+        filename = constants.DOWNLOAD_FOLDER + self.reqIdDict[reqId]
         # filename = self.reqIdDict[reqId]
         print(folderName, filename)
         self.join_chunks(folderName, filename)
-        filepath = os.path.join(filename)
+        filepath = filename
         self.add_entry(constants.DB_TABLE_FILE, filename.split(".")[0], filepath, os.stat(
             filepath).st_size, self.checksum_large(filepath), 0, reqId, constants.FS_DOWNLOAD_COMPLETE, None)
         # TODO insert into table
@@ -283,14 +288,14 @@ class fileSystem(object):
         pass
 
     def join_chunks(self, fromdir, toFile):
-        with open(toFile, 'wb') as output:
+        with open(toFile, 'wb+') as output:
             parts = os.listdir(fromdir)
-            parts.sort()
+            parts.sort(key=lambda f: int(re.sub('\D', '', f)))
             for filename in parts:
                 print(filename)
                 filepath = os.path.join(fromdir, filename)
                 with open(filepath, 'rb') as input:
-                    output.write(input.read(constants.CHUNK_SIZE))
+                    output.write(input.read())
 
     def update_status_using_reqId(self, table_name, reqId, newStatus):
         if reqId > 0:
@@ -347,8 +352,8 @@ class fileSystem(object):
         return True
 
     def test_done(self):
-        for i in range(math.ceil(16385/constants.CHUNK_SIZE)):
-            chunk = self.getContent(1, i)
+        for i in range(math.ceil(422898/constants.CHUNK_SIZE)):
+            chunk = self.getContent(5, i)
             mssg = {
                 'Data': chunk,
                 'Chunk number': i,
