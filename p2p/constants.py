@@ -10,9 +10,9 @@ LOGGER.info("Logger Initialized!")
 #################### Network Constants ##########################################
 
 APP_PORT = 4000             # Default Port for creating socket connection.
-# ENCODING = 'utf-8'          # Default encoding.
-ENCODING = 'ASCII'
-MY_IP = '192.168.191.4'         # My IP address in the network
+# ENCODING = 'utf-16'          # Default encoding.
+ENCODING = 'utf-8'
+MY_IP = '192.168.191.78'         # My IP address in the network
 SOCKET_TIMEOUT = 10.0       # Time out for receiving message
 MSG_SIZE = 4096             # Amount to receive in one go
 SOCK_SLEEP = 0.001
@@ -31,8 +31,8 @@ FS_DOWNLOAD_PROGRESS = "FDP"            # Download In-Progress
 
 # Database Details
 DB_HOST = "localhost"                   # The location of the database
-DB_USERNAME = "user"                    # Usernmae for accessing the database
-DB_PASSWORD = "pass"                    # Password for accessing the database
+DB_USERNAME = "root"                    # Usernmae for accessing the database
+DB_PASSWORD = "Shivam@3689"                    # Password for accessing the database
 DB_NAME = "fsys"                        # Name of the database
 
 # Table
@@ -58,7 +58,7 @@ CNT_FILENAME = "filename"  # FileNmae (String)
 CNT_CHECKSUM = "checksum"  # Checksum (String)
 CNT_FILEPATH = "filepath"  # Filepath (String)
 
-# Message Constants ######################################3
+######################## Message Constants ######################################
 
 # Message Types
 JOIN = 'Join'  # A message to join the network
@@ -131,8 +131,7 @@ ROUTING = 'Routing Table'               # The Routing Table ({IP, GUID})
 SOURCE_IP = 'Source IP'                 # Ip of the query source (String)
 SOURCE_GUID = 'Source GUID'             # GUID of the query source (String)
 SEARCH = 'Search'                       # The query to search (String)
-# The unique query id of the query (String)
-QUERY_ID = 'Query ID'
+QUERY_ID = 'Query ID'                   # The unique query id of the query (String)
 
 # QUERY_RESP MESSAGE = {
 #     TYPE,
@@ -144,9 +143,8 @@ QUERY_ID = 'Query ID'
 #     RESULTS,
 # }
 RESULTS = 'Results'                     # The Results received from the file system
-# ([{FILE_ID, FT_NAME, NUM_CHUNKS, FT_CHECKSUM}, ])
-# The total number of chunks in the file (Int)
-NUM_CHUNKS = 'Total Chunks'
+                                        # ([{FILE_ID, FT_NAME, NUM_CHUNKS, FT_CHECKSUM}, ])
+NUM_CHUNKS = 'Total Chunks'             # The total number of chunks in the file (Int)
 
 # TRANSFER_REQ = {
 #     TYPE,
@@ -198,3 +196,5 @@ DISPLAY = 'show'                # Command to display the results
 CHOOSE = 'down'                 # Command to download the results
 PROGRESS = 'progress'           # Command to display the progress
 ABORT = 'abort'                 # Abort the download
+SHARE = 'share'                 # Share Content
+UNSHARE = 'remove'              # Unshare Content

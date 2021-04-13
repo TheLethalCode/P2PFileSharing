@@ -1,12 +1,14 @@
-import constants
+import p2p.constants as constants
 import sys
 import os
+import base64
 import mysql.connector
 from mysql.connector.errors import ProgrammingError
 from binaryornot.check import is_binary
 import hashlib
 import math
-
+import sqlite3
+import shutil
 # TODO: Entry for DOWNLOADS
 # TODO: Set ParentID and RequestId properly
 # TODO: modify queries to check status
@@ -29,29 +31,19 @@ class fileSystem(object):
         self.downloadComplete = {}
         self.fsLocation = constants.FILESYS_PATH
         try:
-            self.fs_db = mysql.connector.connect(
-                host=constants.DB_HOST,
-                user=constants.DB_USERNAME,
-                password=constants.DB_PASSWORD,
-                database=constants.DB_NAME
-            )
+            # self.fs_db = mysql.connector.connect(
+            #     host=constants.DB_HOST,
+            #     user=constants.DB_USERNAME,
+            #     password=constants.DB_PASSWORD,
+            #     database=constants.DB_NAME
+            # )
+            self.fs_db = sqlite3.connect(constants.DB_NAME)
             self.fs_db_cursor = self.fs_db.cursor()
             print("DATABASE EXISTS")
-            self.view_table(constants.DB_TABLE_FILE)
-        except:
-            print("DATABASE AND TABLE DNE")
-            self.fs_db = mysql.connector.connect(
-                host=constants.DB_HOST,
-                user=constants.DB_USERNAME,
-                password=constants.DB_PASSWORD,
-            )
-            self.fs_db_cursor = self.fs_db.cursor()
-            self.fs_db_cursor.execute("CREATE DATABASE "+constants.DB_NAME)
-            self.fs_db_cursor.execute("USE "+constants.DB_NAME)
-            self.fs_db.commit()
+        # except:
             print("CREATING TABLE")
-            query = "CREATE TABLE "+constants.DB_TABLE_FILE+" ( "\
-                + constants.FT_ID + " INT AUTO_INCREMENT PRIMARY KEY,"\
+            query = "CREATE TABLE IF NOT EXISTS "+constants.DB_TABLE_FILE+" ( "\
+                + constants.FT_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"\
                 + constants.FT_NAME+" VARCHAR(100) NOT NULL, "\
                 + constants.FT_PATH+" VARCHAR(255) UNIQUE, "\
                 + constants.FT_SIZE+" INT(255), "\
@@ -64,6 +56,10 @@ class fileSystem(object):
             print(query)
             self.fs_db_cursor.execute(query)
             self.fs_db.commit()
+            self.view_table(constants.DB_TABLE_FILE)
+        except Exception as ex:
+            print(ex)
+            pass
 
     def add_entry(self, table_name, name, path, size, checksum, parentID, randomID, status, replication):
         query = "INSERT INTO "+table_name+"(" + constants.FT_NAME+"," + constants.FT_PATH+", "\
@@ -128,18 +124,18 @@ class fileSystem(object):
         finally:
             return response
 
-    """
-        Returns as chunk of predefined ChunkSize from file using input FileID
-
-        Inputs: 
-            fileId
-            chunkNumber
-        Returns:
-            Chunk, if accessible
-            False, if File DNE or File is not Binary
-    """
-
     def getContent(self, fileId, chunkNumber):
+        """
+            Returns as chunk of predefined ChunkSize from file using input FileID
+
+            Inputs: 
+                fileId
+                chunkNumber
+            Returns:
+                Chunk, if accessible
+                False, if File DNE or File is not Binary
+        """
+
         fileDetails = self.get_fileDetails_from_fileID(fileId)
         file_path = fileDetails[constants.FT_PATH]
         if is_binary(file_path) == False:
@@ -150,7 +146,7 @@ class fileSystem(object):
                     f.seek(constants.CHUNK_SIZE * chunkNumber, 0)
                     readChunk = f.read(constants.CHUNK_SIZE)
                     return {
-                        constants.CNT_CHUNK: str(readChunk, encoding=constants.ENCODING),
+                        constants.CNT_CHUNK: readChunk,
                         constants.CNT_FILENAME: fileDetails[constants.FT_NAME],
                         constants.CNT_CHECKSUM: self.checksum(readChunk),
                         constants.CNT_FILEPATH: fileDetails[constants.FT_PATH]
@@ -178,9 +174,6 @@ class fileSystem(object):
             " where "+constants.FT_ID+" = "+str(fileId)
         result = self.execute_query(query, True)[0]
         return self.get_list_item_to_fileSys_item(result)
-
-    def upload_file(self, filepath):
-        pass
 
     def remove_table(self, table_name):
         query = "DROP TABLE "+table_name
@@ -230,9 +223,11 @@ class fileSystem(object):
         content = mssg[constants.CONTENT]
         fileName = str(mssg[constants.REQUEST_ID])+"_" + \
             content[constants.CNT_FILENAME]
-        chunk = bytes(content[constants.CNT_CHUNK], constants.ENCODING)
+        chunk = content[constants.CNT_CHUNK]
         filepath = content[constants.CNT_FILEPATH]
         checkSum_rec = content[constants.CNT_CHECKSUM]
+        print(self.checksum(chunk), checkSum_rec,
+              self.checksum(chunk) == checkSum_rec)
         if self.checksum(chunk) != checkSum_rec:
             return False
         else:
@@ -250,11 +245,12 @@ class fileSystem(object):
     def done(self, reqId):
         folderName = self.get_foldername_using_reqId(reqId)
         filename = self.reqIdDict[reqId]
-        self.join_chunks(folderName, filename)
+        self.join_chunks(folderName, "outtest"+filename)
         # TODO insert into table
         # Use this downloadComplete to point to the fileId
         self.downloadComplete[reqId] = filename
-        self.reqIdDict.popitem(reqId)
+        self.reqIdDict.pop(reqId)
+        shutil.rmtree(folderName)
         return True
 
     def get_foldername_using_reqId(self, request_id):
@@ -303,17 +299,24 @@ class fileSystem(object):
                            size, cSum, parentId, randId, status, replication)
             return True
 
+    def abort_download(self, reqId):
+        folderName = self.get_foldername_using_reqId(reqId)
+        self.reqIdDict.pop(reqId)
+        shutil.rmtree(folderName)
+        return True
+
     def removeShare(self, path):
         self.remove_entry(constants.DB_TABLE_FILE, constants.FT_PATH, path)
         return True
-        # def test_done(self):
-        #     for i in range(math.ceil(16712//constants.CHUNK_SIZE)):
-        #         chunk = self.get_content(4, i)
-        #         mssg = {
-        #             'Data': chunk,
-        #             'Chunk number': i,
-        #             'Request ID': 124
-        #         }
-        #         self.writeChunk(mssg)
-        #     print(self.done(124))
-        #     pass
+
+    def test_done(self):
+        for i in range(math.ceil(16385/constants.CHUNK_SIZE)):
+            chunk = self.getContent(1, i)
+            mssg = {
+                'Data': chunk,
+                'Chunk number': i,
+                'Request ID': 124
+            }
+            self.writeChunk(mssg)
+        print(self.done(124))
+        pass
