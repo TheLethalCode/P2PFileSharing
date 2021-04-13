@@ -3,9 +3,12 @@ import os
 import sys
 import time
 import threading
+import copy
 import p2p.network as network
 from p2p.constants import *
 
+# TODO:- Change the mutex in a such a way it creates copy of the list and remove the locks
+# TODO:- Manage log(N) entries
 
 class routingTable(object):
     def __init__(self):
@@ -105,17 +108,17 @@ class routingTable(object):
 
     def handlePong(self, pongMsg):
         # Handle incoming Pong
-        if pongMsg[TYPE] != PING:
+        if pongMsg[TYPE] != PONG:
             print('Warning HandlePing has not received PING message')
             return
-        self.updatePeer(GUID=pingMsg[SEND_GUID], IPAddr=pingMsg[SEND_IP])
+        self.updatePeer(GUID=pongMsg[SEND_GUID], IPAddr=pongMsg[SEND_IP]])
         self.mutexPP.acquire()
         self.recvPong.append(pingMsg[SEND_GUID])
         self.mutexPP.release()
 
     def sendPing(self, destGUID, destIP):
         pingMsg = {
-            TYPE: PONG,
+            TYPE: PING,
             SEND_IP: MY_IP,
             SEND_GUID: self.myGUID,
             DEST_IP: destIP,
@@ -135,19 +138,27 @@ class routingTable(object):
         return nbr
 
     def periodicActivityCheck(self):
+        sentPingTemp = []
+        recvPongTemp = []
         while(self.StayActive):
             time.sleep(self.updateFreq)
             # print('UPDATING')
             self.mutexPP.acquire()
-            for guid in self.sentPing:
-                self.mutex.acquire()
+            sentPingTemp = copy.copy(self.sendPing)
+            recvPongTemp = copy.copy(self.recvPong)
+            self.sentPing = []
+            self.recvPong = []         
+            self.mutex.release()
+            # self.mutexPP.acquire()
+            for guid in sentPingTemp:
+                # self.mutex.acquire()
                 if guid in self.RT.keys():
                     obj = self.RT[guid]
                 else:
                     continue
-                self.mutex.release()
+                # self.mutex.release()
 
-                if guid in self.recvPong:
+                if guid in recvPongTemp:
                     self.updatePeer(
                         GUID=guid, IPAddr=obj[IP_ADDR], Port=obj[RT_PORT], IsCentre=obj[RT_ISCENTRE])
                 else:
@@ -157,9 +168,9 @@ class routingTable(object):
                         self.updatePeer(GUID=guid, IPAddr=obj[IP_ADDR], Port=obj[RT_PORT],
                                         ActiveBool=False, InactiveTime=obj[RT_INACTIVE]+1, IsCentre=obj[RT_ISCENTRE])
 
-            self.sentPing = []
-            self.recvPong = []
-            self.mutexPP.release()
+            # self.sentPing = []
+            # self.recvPong = []
+            # self.mutexPP.release()
 
             nbr = self.neighbours()
             for (guid, IPAddr) in nbr:
