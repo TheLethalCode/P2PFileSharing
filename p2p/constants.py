@@ -22,6 +22,9 @@ SOCK_SLEEP = 0.001
 FILESYS_PATH = "fs.pkl"         #
 CHUNK_SIZE = 65536              # Chunk Size (in Bytes) 65536 bytes = 64KB
 
+DOWNLOAD_FOLDER = "downloads/"
+INCOMPLETE_FOLDER = "incomplete/"
+
 # Statuses
 FS_UPLOADED = "UPL"                     # Uploaded by current node
 FS_REPLICATION_COMPLETE = "RPC"         # Replication - Download Complete
@@ -41,7 +44,7 @@ FT_PATH = "path"                        #
 FT_SIZE = "size"                        #
 FT_CHECKSUM = "checksum"                #
 FT_PARENTID = "parent_id"               #
-FT_RANDOMID = "random_id"               #
+FT_REQUESTID = "random_id"               #
 FT_STATUS = "status"                    #
 FT_REPLICATED_TO = "replication_node"   #
 FT_ID = "ID"                            #

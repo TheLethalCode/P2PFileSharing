@@ -245,7 +245,7 @@ class fileSystem(object):
 
     def done(self, reqId):
         folderName = self.get_foldername_using_reqId(reqId)
-        filename = "test_"+self.reqIdDict[reqId]
+        filename = self.reqIdDict[reqId]
         # filename = self.reqIdDict[reqId]
         print(folderName, filename)
         self.join_chunks(folderName, filename)
@@ -299,8 +299,14 @@ class fileSystem(object):
                 TRUE on success
                 FALSE on failure
         """
-        if (not os.path.exists(path)) or (not os.path.isfile(path)) or (not is_binary(path)):
+        if (not os.path.exists(path)) or (os.path.isfile(path) and not is_binary(path)):
             return False
+        elif (os.path.isdir(path)):
+            for file in os.listdir(path):
+                file = path+"/"+file
+                if os.path.isfile(file):
+                    print(file)
+                    self.add(file)
         else:
             filename = os.path.splitext(path)[0].split("/")[-1]
             file_stat = os.stat(path)
