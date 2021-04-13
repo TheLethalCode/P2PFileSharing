@@ -111,14 +111,14 @@ class routingTable(object):
         if pongMsg[TYPE] != PONG:
             print('Warning HandlePing has not received PING message')
             return
-        self.updatePeer(GUID=pingMsg[SEND_GUID], IPAddr=pingMsg[SEND_IP])
+        self.updatePeer(GUID=pongMsg[SEND_GUID], IPAddr=pongMsg[SEND_GUID])
         self.mutexPP.acquire()
         self.recvPong.append(pingMsg[SEND_GUID])
         self.mutexPP.release()
 
     def sendPing(self, destGUID, destIP):
         pingMsg = {
-            TYPE: PONG,
+            TYPE: PING,
             SEND_IP: MY_IP,
             SEND_GUID: self.myGUID,
             DEST_IP: destIP,
