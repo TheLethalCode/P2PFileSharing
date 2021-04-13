@@ -21,7 +21,7 @@ class Node(object):
     def __init__(self, isBootstrap = False):
 
         self.routTab = routingTable()
-        self.fileSys = None
+        self.fileSys = fileSystem()
         
         # Handle the case of bootstrapping node
         self.isJoined = isBootstrap
