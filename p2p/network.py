@@ -50,7 +50,7 @@ def receive(socket: socket):
             if length is None and len(temp) >= 4:
                 length = int.from_bytes(temp[:4], 'big')
                 temp = temp[4:]
-            
+
             if length is not None:
                 if length > len(temp):
                     buff += temp
@@ -91,6 +91,7 @@ def generate_guid():
     """
     return str(uuid.uuid4())
 
+
 def generate_uuid_from_guid(guid:  str, number: int):
     """Generate UUID from MD5 Hash of GUID and sequence number.
 
@@ -101,4 +102,4 @@ def generate_uuid_from_guid(guid:  str, number: int):
     Returns:
         str: Hex digest of generate UUID.
     """
-    return uuid.uuid3(uuid.UUID(guid), str(number))
+    return str(uuid.uuid3(uuid.UUID(guid), str(number)))

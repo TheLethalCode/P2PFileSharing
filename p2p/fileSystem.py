@@ -150,7 +150,7 @@ class fileSystem(object):
                     f.seek(constants.CHUNK_SIZE * chunkNumber, 0)
                     readChunk = f.read(constants.CHUNK_SIZE)
                     return {
-                        constants.CNT_CHUNK: readChunk,
+                        constants.CNT_CHUNK: str(readChunk, encoding=constants.ENCODING),
                         constants.CNT_FILENAME: fileDetails[constants.FT_NAME],
                         constants.CNT_CHECKSUM: self.checksum(readChunk),
                         constants.CNT_FILEPATH: fileDetails[constants.FT_PATH]
@@ -230,7 +230,7 @@ class fileSystem(object):
         content = mssg[constants.CONTENT]
         fileName = str(mssg[constants.REQUEST_ID])+"_" + \
             content[constants.CNT_FILENAME]
-        chunk = content[constants.CNT_CHUNK]
+        chunk = bytes(content[constants.CNT_CHUNK], constants.ENCODING)
         filepath = content[constants.CNT_FILEPATH]
         checkSum_rec = content[constants.CNT_CHECKSUM]
         if self.checksum(chunk) != checkSum_rec:
