@@ -3,13 +3,11 @@ import socket
 import time
 from json.decoder import JSONDecodeError
 import uuid
+from p2p.constants import *
 
-from constants import CHUNK_SIZE, ENCODING, EOM_CHAR, APP_PORT, SOCKET_TIMEOUT
 
-
-def send(ip: str, **data) -> bool:
-    """Send data to IP (default PORT) with EOM_CHAR at the end.
-
+def send(ip: str, **data):
+    """Send data to IP (default PORT).
     Args:
         ip (str): IP address of the receipent.
         data (key-value): data encode-able into JSON for sending.
@@ -19,17 +17,33 @@ def send(ip: str, **data) -> bool:
     """
     try:
         data = dict(data)
+        isTransfer = False
+
+        if data[TYPE] == TRANSFER_FILE:
+            isTransfer = True
+            content = data[CONTENT][CNT_CHUNK]
+            data[CONTENT][CNT_CHUNK] = ''
+
         data = json.dumps(data)
-        data = str(len(data)).encode(ENCODING) + data.encode(ENCODING)
+        data = data.encode(ENCODING)
+        data = len(data).to_bytes(4, 'big') + data
         socket = _get_socket(ip)
+
+        if isTransfer:
+            data += int(1).to_bytes(1, 'big') + data
+            data += len(content).to_bytes(4, 'big') + content
+        else:
+            data += int(0).to_bytes(1, 'big') + data
+
         socket.sendall(data)
         return True
+
     except (ValueError, TypeError, Exception) as err:
         print(f'ERROR: {err}')
         return False
 
 
-def receive(socket: socket) -> dict:
+def receive(socket: socket):
     """Receive data from socket until EOM_CHAR.
 
     Args:
@@ -41,33 +55,64 @@ def receive(socket: socket) -> dict:
     # timeout after TIMEOUT seconds if no data received
     socket.settimeout(SOCKET_TIMEOUT)
     buff = b''
-    length = None
+    toSend = {}
+    isContent = None
+    length, contLength = None, None
+    done = False
 
     while True:
         temp = b''
-        temp = socket.recv(CHUNK_SIZE)
-
+        temp = socket.recv(MSG_SIZE)
+        
         if temp != b'':
-            if length is None:
-                length = int(temp[:4].decode(ENCODING))
+            if isContent is None:
+                isContent = bool(int.from_bytes(temp[:1], 'big'))
+                temp = temp[1:]
+
+            if length is None and len(temp) >= 4:
+                length = int.from_bytes(temp[:4], 'big')
                 temp = temp[4:]
+
+            if length is not None and not done:
+                if length > len(temp):
+                    buff += temp
+                    length -= len(temp)
+
+                else:
+                    buff += temp[:length]
+                    try:
+                        buff = buff.decode(ENCODING)
+                        toSend = json.loads(buff)
+                        if isContent:
+                            done = True
+                            buff = b''
+                        else:
+                            return toSend
+
+                    except JSONDecodeError as err:
+                        print(f"DEBUG: {err}")
+                        print("ERROR: invalid dict received!")
+                        None
             
-            if length > len(temp):
-                buff += temp
-                length -= len(temp)
-            else:
-                buff += temp[:length]
-                try:
-                    buff = buff.decode(ENCODING)
-                    return json.loads(buff)
-                except JSONDecodeError as err:
-                    print(f"DEBUG: {err}")
-                    print("ERROR: invalid dict received!")
-                    return {}
-        time.sleep(0.01)
+            if done and isContent:
+                if contLength is None and len(temp) >= 4:
+                    contLength = int.from_bytes(temp[:4], 'big')
+                    temp = temp[4:]
+
+                if contLength is not None:
+                    if contLength > len(temp):
+                        buff += temp
+                        contLength -= len(temp)
+
+                    else:
+                        buff += temp[:contLength]
+                        toSend[CONTENT][CNT_CHUNK] = buff
+                        return toSend
+
+        time.sleep(SOCK_SLEEP)
 
 
-def _get_socket(ip: str) -> socket:
+def _get_socket(ip: str):
     """Get socket to the provided IP.
 
     Args:
@@ -77,11 +122,11 @@ def _get_socket(ip: str) -> socket:
         socket: Socket to the IP.
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(ip, APP_PORT)
+    sock.connect((ip, APP_PORT))
     return sock
 
 
-def generate_guid() -> str:
+def generate_guid():
     """Generate a random UUID.
 
     Returns:
@@ -89,7 +134,8 @@ def generate_guid() -> str:
     """
     return str(uuid.uuid4())
 
-def generate_uuid_from_guid(guid:  str, number: int) -> str:
+
+def generate_uuid_from_guid(guid:  str, number: int):
     """Generate UUID from MD5 Hash of GUID and sequence number.
 
     Args:
@@ -99,4 +145,4 @@ def generate_uuid_from_guid(guid:  str, number: int) -> str:
     Returns:
         str: Hex digest of generate UUID.
     """
-    return uuid.uuid3(uuid.UUID(guid), str(number))
+    return str(uuid.uuid3(uuid.UUID(guid), str(number)))

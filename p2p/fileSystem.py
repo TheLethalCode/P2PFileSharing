@@ -1,12 +1,14 @@
 import p2p.constants as constants
 import sys
 import os
+import base64
 import mysql.connector
 import mysql.connector.errors as connector_errors
 from binaryornot.check import is_binary
 import hashlib
 import math
-
+import sqlite3
+import shutil
 # TODO: Entry for DOWNLOADS
 # TODO: abort on some request id
 # TODO: Set ParentID and RequestId properly
@@ -30,32 +32,12 @@ class fileSystem(object):
         self.downloadComplete = {}
         self.fsLocation = constants.FILESYS_PATH
         try:
-            self.fs_db = mysql.connector.connect(
-                host=constants.DB_HOST,
-                user=constants.DB_USERNAME,
-                password=constants.DB_PASSWORD,
-                database=constants.DB_NAME
-            )
+            self.fs_db = sqlite3.connect(constants.DB_NAME)
             self.fs_db_cursor = self.fs_db.cursor()
             print("DATABASE EXISTS")
-            self.view_table(constants.DB_TABLE_FILE)
-        except connector_errors.DatabaseError as ex:
-            print("Can't connect to MYSQL server on localhost")
-            print(ex)
-        except:
-            print("DATABASE AND TABLE DNE")
-            self.fs_db = mysql.connector.connect(
-                host=constants.DB_HOST,
-                user=constants.DB_USERNAME,
-                password=constants.DB_PASSWORD,
-            )
-            self.fs_db_cursor = self.fs_db.cursor()
-            self.fs_db_cursor.execute("CREATE DATABASE "+constants.DB_NAME)
-            self.fs_db_cursor.execute("USE "+constants.DB_NAME)
-            self.fs_db.commit()
             print("CREATING TABLE")
-            query = "CREATE TABLE "+constants.DB_TABLE_FILE+" ( "\
-                + constants.FT_ID + " INT AUTO_INCREMENT PRIMARY KEY,"\
+            query = "CREATE TABLE IF NOT EXISTS "+constants.DB_TABLE_FILE+" ( "\
+                + constants.FT_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"\
                 + constants.FT_NAME+" VARCHAR(100) NOT NULL, "\
                 + constants.FT_PATH+" VARCHAR(255) UNIQUE, "\
                 + constants.FT_SIZE+" INT(255), "\
@@ -68,6 +50,10 @@ class fileSystem(object):
             print(query)
             self.fs_db_cursor.execute(query)
             self.fs_db.commit()
+            self.view_table(constants.DB_TABLE_FILE)
+        except Exception as ex:
+            print(ex)
+            pass
 
     def add_entry(self, table_name, name, path, size, checksum, parentID, randomID, status, replication):
         query = "INSERT INTO "+table_name+"(" + constants.FT_NAME+"," + constants.FT_PATH+", "\
@@ -92,7 +78,6 @@ class fileSystem(object):
         print(query)
         self.execute_query(query)
         return True
-        pass
 
     def view_table(self, table_name):
         query = "SELECT * FROM "+table_name
@@ -242,6 +227,8 @@ class fileSystem(object):
         chunk = content[constants.CNT_CHUNK]
         filepath = content[constants.CNT_FILEPATH]
         checkSum_rec = content[constants.CNT_CHECKSUM]
+        print(self.checksum(chunk), checkSum_rec,
+              self.checksum(chunk) == checkSum_rec)
         if self.checksum(chunk) != checkSum_rec:
             return False
         else:
@@ -270,6 +257,7 @@ class fileSystem(object):
         self.downloadComplete[reqId] = filename
         print(type(self.reqIdDict))
         self.reqIdDict.pop(reqId)
+        shutil.rmtree(folderName)
         return True
 
     def get_foldername_using_reqId(self, request_id):
@@ -326,13 +314,19 @@ class fileSystem(object):
                            size, cSum, parentId, randId, status, replication)
             return True
 
+    def abort_download(self, reqId):
+        folderName = self.get_foldername_using_reqId(reqId)
+        self.reqIdDict.pop(reqId)
+        shutil.rmtree(folderName)
+        return True
+
     def removeShare(self, path):
         self.remove_entry(constants.DB_TABLE_FILE, constants.FT_PATH, path)
         return True
 
     def test_done(self):
-        for i in range(math.ceil(16712//constants.CHUNK_SIZE)+1):
-            chunk = self.getContent(4, i)
+        for i in range(math.ceil(16385/constants.CHUNK_SIZE)):
+            chunk = self.getContent(1, i)
             mssg = {
                 'Data': chunk,
                 'Chunk number': i,
