@@ -132,10 +132,10 @@ class Node(object):
                 DEST_GUID: msg[SEND_GUID]
             }
             network.send(msg[SEND_IP], **pongMsg)
-            self.routTab.handlePing(msg)   # ROUT_ROB
+            self.routTab.handlePing(msg)
 
         elif msg[TYPE] == PONG:
-            self.routTab.handlePong(msg)   # ROUT_ROB
+            self.routTab.handlePong(msg)
 
         elif msg[TYPE] == QUERY:
             # Check whether the query is repeated

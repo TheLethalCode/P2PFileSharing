@@ -58,7 +58,7 @@ CNT_FILENAME = "filename"  # FileNmae (String)
 CNT_CHECKSUM = "checksum"  # Checksum (String)
 CNT_FILEPATH = "filepath"  # Filepath (String)
 
-# Message Constants ######################################3
+######################## Message Constants ######################################
 
 # Message Types
 JOIN = 'Join'  # A message to join the network
@@ -131,8 +131,7 @@ ROUTING = 'Routing Table'               # The Routing Table ({IP, GUID})
 SOURCE_IP = 'Source IP'                 # Ip of the query source (String)
 SOURCE_GUID = 'Source GUID'             # GUID of the query source (String)
 SEARCH = 'Search'                       # The query to search (String)
-# The unique query id of the query (String)
-QUERY_ID = 'Query ID'
+QUERY_ID = 'Query ID'                   # The unique query id of the query (String)
 
 # QUERY_RESP MESSAGE = {
 #     TYPE,
@@ -144,9 +143,8 @@ QUERY_ID = 'Query ID'
 #     RESULTS,
 # }
 RESULTS = 'Results'                     # The Results received from the file system
-# ([{FILE_ID, FT_NAME, NUM_CHUNKS, FT_CHECKSUM}, ])
-# The total number of chunks in the file (Int)
-NUM_CHUNKS = 'Total Chunks'
+                                        # ([{FILE_ID, FT_NAME, NUM_CHUNKS, FT_CHECKSUM}, ])
+NUM_CHUNKS = 'Total Chunks'             # The total number of chunks in the file (Int)
 
 # TRANSFER_REQ = {
 #     TYPE,
