@@ -99,7 +99,6 @@ def receive(socket: socket):
                 if contLength is None and len(temp) >= 4:
                     contLength = int.from_bytes(temp[:4], 'big')
                     temp = temp[4:]
-                    print(contLength)
 
                 if contLength is not None:
                     if contLength > len(temp):

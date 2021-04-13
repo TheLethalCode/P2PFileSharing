@@ -2,8 +2,6 @@ import constants
 import sys
 import os
 import base64
-import mysql.connector
-from mysql.connector.errors import ProgrammingError
 from binaryornot.check import is_binary
 import hashlib
 import math
@@ -264,7 +262,6 @@ class fileSystem(object):
             parts = os.listdir(fromdir)
             parts.sort()
             for filename in parts:
-                print(filename)
                 filepath = os.path.join(fromdir, filename)
                 with open(filepath, 'rb') as input:
                     output.write(input.read(constants.CHUNK_SIZE))

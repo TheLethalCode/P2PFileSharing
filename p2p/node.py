@@ -109,8 +109,9 @@ class Node(object):
         if msg is None or (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
             return
 
-        print(msg)
-
+        if msg[TYPE] != TRANSFER_FILE:
+            print(msg)  
+            
         if msg[TYPE] == JOIN:
             joinAck = {
                 TYPE: JOIN_ACK,
@@ -203,19 +204,25 @@ class Node(object):
     # Function for a thread to use for requesting transfer of content
     def requestTransfer(self, tid, numChunks, msg):
         start = tid
-        while start < numChunks:
+        try:
+            while start < numChunks:
 
-            with self.chunkLeftLock:
-                ok = (start in self.chunkLeft[msg[REQUEST_ID]][1])
-            msg[CHUNK_NO] = start
-
-            while ok:
-                network.send(msg[DEST_IP], **msg)
-                time.sleep(TRANS_WAIT)
                 with self.chunkLeftLock:
                     ok = (start in self.chunkLeft[msg[REQUEST_ID]][1])
+                msg[CHUNK_NO] = start
 
-            start += NUM_THREADS
+                while ok:
+                    network.send(msg[DEST_IP], **msg)
+                    time.sleep(TRANS_WAIT)
+                    with self.chunkLeftLock:
+                        ok = (start in self.chunkLeft[msg[REQUEST_ID]][1])
+
+                start += NUM_THREADS
+
+        except KeyError:
+            pass
+
+        print("Thread {} done".format(tid))
 
     # Sends a Query for the required content to all its neighbours
     def findContent(self, searchQ):
@@ -360,7 +367,7 @@ def parseCmds(cmd, peer):
         peer.removeShare(cmd[1])
 
     else:
-        print("Wrong Command or format")
+        print("Wrong Command or format!")
         displayHelp()
 
 
