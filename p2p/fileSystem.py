@@ -10,6 +10,7 @@ import os
 import sys
 import constants
 import constants as constants
+import threading
 
 # TODO: Entry for DOWNLOADS
 # TODO: abort on some request id
@@ -32,6 +33,8 @@ class fileSystem(object):
         super().__init__()
         self.reqIdDict = {}
         self.downloadComplete = {}
+        self.fileIdcache = {}
+        self.databaseLock = threading.RLock()
         self.fsLocation = constants.FILESYS_PATH
         try:
             self.fs_db = sqlite3.connect(
@@ -51,8 +54,9 @@ class fileSystem(object):
                 + constants.FT_REPLICATED_TO + " VARCHAR(255)"\
                 + ")"
             print(query)
-            self.fs_db_cursor.execute(query)
-            self.fs_db.commit()
+            with self.databaseLock:
+                self.fs_db_cursor.execute(query)
+                self.fs_db.commit()
             self.view_table(constants.DB_TABLE_FILE)
         except Exception as ex:
             print(ex)
@@ -67,8 +71,9 @@ class fileSystem(object):
 
         print(query)
         try:
-            self.fs_db_cursor.execute(query)
-            self.fs_db.commit()
+            with self.databaseLock:
+                self.fs_db_cursor.execute(query)
+                self.fs_db.commit()
             print("Commit Successful")
             print(self.fs_db_cursor.rowcount, "record inserted")
         except Exception as Ex:
@@ -87,8 +92,9 @@ class fileSystem(object):
         print(query)
 
         try:
-            self.fs_db_cursor.execute(query)
-            result = self.fs_db_cursor.fetchall()
+            with self.databaseLock:
+                self.fs_db_cursor.execute(query)
+                result = self.fs_db_cursor.fetchall()
             for r in result:
                 print(r)
         except Exception as Ex:
@@ -106,8 +112,9 @@ class fileSystem(object):
         # print(query)
         response = []
         try:
-            self.fs_db_cursor.execute(query)
-            result = self.fs_db_cursor.fetchall()
+            with self.databaseLock:
+                self.fs_db_cursor.execute(query)
+                result = self.fs_db_cursor.fetchall()
             for r in result:
                 response.append({
                     constants.FILE_ID: r[0],
@@ -134,7 +141,9 @@ class fileSystem(object):
                 Chunk, if accessible
                 False, if File DNE or File is not Binary
         """
-        fileDetails = self.get_fileDetails_from_fileID(fileId)
+        if fileId not in self.fileIdcache.keys():
+            self.fileIdcache[fileId] = self.get_fileDetails_from_fileID(fileId)
+        fileDetails = self.fileIdcache[fileId]
         file_path = fileDetails[constants.FT_PATH]
         if is_binary(file_path) == False:
             return False
@@ -190,8 +199,9 @@ class fileSystem(object):
     def execute_query(self, query, response=False):
         if response == True:
             try:
-                self.fs_db_cursor.execute(query)
-                result = self.fs_db_cursor.fetchall()
+                with self.databaseLock:
+                    self.fs_db_cursor.execute(query)
+                    result = self.fs_db_cursor.fetchall()
                 return result
             except Exception as Ex:
                 # TODO ADD SOME LOGGING MECHANISM
@@ -199,8 +209,9 @@ class fileSystem(object):
                 self.fs_db.rollback()
         else:
             try:
-                self.fs_db_cursor.execute(query)
-                self.fs_db.commit()
+                with self.databaseLock:
+                    self.fs_db_cursor.execute(query)
+                    self.fs_db.commit()
                 print("Commit Successful")
             except Exception as Ex:
                 # TODO ADD SOME LOGGING MECHANISM
