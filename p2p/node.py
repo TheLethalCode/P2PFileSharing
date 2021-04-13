@@ -355,11 +355,11 @@ def parseCmds(cmd, peer):
         peer.checkProgress(int(cmd[1]))
 
     elif cmd[0].lower() == ABORT and len(cmd) == 2:
-        peer.abort()
+        peer.abort(int(cmd[1]))
 
     elif cmd[0].lower() == SHARE and len(cmd) == 2:
         peer.shareContent(cmd[1])
-    
+
     elif cmd[0].lower() == UNSHARE and len(cmd) == 2:
         peer.removeShare(cmd[1])
 
@@ -370,7 +370,7 @@ def parseCmds(cmd, peer):
 
 if __name__ == '__main__':
 
-    peer = Node(True)
+    peer = Node()
     peer.load_state()
 
     bootstrapIP = None

@@ -19,6 +19,8 @@ import threading
 # TODO: add function to update status using fileID
 # TODO: return correctly the response in search()
 # TODO: request removal of replication when removing content
+# TODO: saving states of dicts
+# TODO: test multiple chunks of files
 
 
 class fileSystem(object):

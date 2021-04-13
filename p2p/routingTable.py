@@ -4,10 +4,12 @@ import sys
 import time
 import threading
 import network
+import copy
 from constants import *
 
 # TODO:- Change the mutex in a such a way it creates copy of the list and remove the locks
 # TODO:- Manage log(N) entries
+
 
 class routingTable(object):
     def __init__(self):
@@ -146,7 +148,7 @@ class routingTable(object):
             sentPingTemp = copy.copy(self.sendPing)
             recvPongTemp = copy.copy(self.recvPong)
             self.sentPing = []
-            self.recvPong = []         
+            self.recvPong = []
             self.mutex.release()
             # self.mutexPP.acquire()
             for guid in sentPingTemp:
