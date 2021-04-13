@@ -313,7 +313,7 @@ class Node(object):
     # Abort download
     def abort(self, reqId):
         with self.chunkLeftLock:
-            del self.chunkLeftLock[reqId]
+            del self.chunkLeft[reqId]
         self.fileSys.abort_download(reqId)
 
     # Share Files
