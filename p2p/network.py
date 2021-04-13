@@ -3,9 +3,7 @@ import socket
 import time
 from json.decoder import JSONDecodeError
 import uuid
-from constants import TRANSFER_FILE, TYPE
-
-from constants import MSG_SIZE, ENCODING, SOCK_SLEEP, APP_PORT, SOCKET_TIMEOUT
+from p2p.constants import *
 
 
 def send(ip: str, **data):
@@ -19,12 +17,27 @@ def send(ip: str, **data):
     """
     try:
         data = dict(data)
+        isTransfer = False
+
+        if data[TYPE] == TRANSFER_FILE:
+            isTransfer = True
+            content = data[CONTENT][CNT_CHUNK]
+            data[CONTENT][CNT_CHUNK] = ''
+
         data = json.dumps(data)
         data = data.encode(ENCODING)
         data = len(data).to_bytes(4, 'big') + data
         socket = _get_socket(ip)
+
+        if isTransfer:
+            data += int(1).to_bytes(1, 'big') + data
+            data += len(content).to_bytes(4, 'big') + content
+        else:
+            data += int(0).to_bytes(1, 'big') + data
+
         socket.sendall(data)
         return True
+
     except (ValueError, TypeError, Exception) as err:
         print(f'ERROR: {err}')
         return False
@@ -42,19 +55,25 @@ def receive(socket: socket):
     # timeout after TIMEOUT seconds if no data received
     socket.settimeout(SOCKET_TIMEOUT)
     buff = b''
-    length = None
+    toSend = {}
+    isContent = None
+    length, contLength = None, None
+    done = False
 
     while True:
         temp = b''
         temp = socket.recv(MSG_SIZE)
-
+        
         if temp != b'':
+            if isContent is None:
+                isContent = bool(int.from_bytes(temp[:1], 'big'))
+                temp = temp[1:]
+
             if length is None and len(temp) >= 4:
                 length = int.from_bytes(temp[:4], 'big')
-                # print(length)
                 temp = temp[4:]
 
-            if length is not None:
+            if length is not None and not done:
                 if length > len(temp):
                     buff += temp
                     length -= len(temp)
@@ -63,13 +82,33 @@ def receive(socket: socket):
                     buff += temp[:length]
                     try:
                         buff = buff.decode(ENCODING)
-                        # print(json.loads(buff))
-                        return json.loads(buff)
+                        toSend = json.loads(buff)
+                        if isContent:
+                            done = True
+                            buff = b''
+                        else:
+                            return toSend
 
                     except JSONDecodeError as err:
                         print(f"DEBUG: {err}")
                         print("ERROR: invalid dict received!")
-                        return {}
+                        None
+            
+            if done and isContent:
+                if contLength is None and len(temp) >= 4:
+                    contLength = int.from_bytes(temp[:4], 'big')
+                    temp = temp[4:]
+
+                if contLength is not None:
+                    if contLength > len(temp):
+                        buff += temp
+                        contLength -= len(temp)
+
+                    else:
+                        buff += temp[:contLength]
+                        toSend[CONTENT][CNT_CHUNK] = buff
+                        return toSend
+
         time.sleep(SOCK_SLEEP)
 
 

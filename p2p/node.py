@@ -1,14 +1,13 @@
-from constants import TRANSFER_FILE, CHUNK_NO
 import socket
 import threading
 import time
 import copy
 import sys
 import os
-import network
-from constants import *
-from routingTable import routingTable
-from fileSystem import fileSystem
+import p2p.network as network
+from p2p.constants import *
+from p2p.routingTable import routingTable
+from p2p.fileSystem import fileSystem
 
 # TODO:- Limit the number of threads to a specific amount
 # TODO:- Garbage collection of expired results, queries, transfer requests (Or keep a limit)
@@ -107,11 +106,9 @@ class Node(object):
     # Handles the different type of incoming message
     def msgHandler(self, clientsock):
         msg = network.receive(clientsock)
-        print(msg is None, DEST_GUID in msg, msg[DEST_GUID] != self.GUID, self.GUID)
+        
         if msg is None or (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
             return
-
-        print(f'type={msg[TYPE]}')
 
         if msg[TYPE] == JOIN:
             joinAck = {
@@ -190,13 +187,11 @@ class Node(object):
 
         elif msg[TYPE] == TRANSFER_FILE:
             # Acquire Lock
-            print("here\n")
             with self.chunkLeftLock:
 
                 # If the request is not yet done and the write to the file system is successful
                 if msg[CHUNK_NO] in self.chunkLeft.get(msg[REQUEST_ID], (0, set()))[1] \
                         and self.fileSys.writeChunk(msg):
-                    print("here2\n")
                     self.chunkLeft[msg[REQUEST_ID]][1].remove(msg[CHUNK_NO])
 
                     # If all the chunks are done, inform filesys of the completion
@@ -262,7 +257,6 @@ class Node(object):
                 print("\n===================\n")
 
     # Choose the desired response for file transfer
-
     def chooseResults(self, qId, peerNum, resNum):
         try:
             with self.queryResLock:
@@ -317,8 +311,6 @@ class Node(object):
         self.fileSys.remove(path)
 
 # Display help for the commands
-
-
 def displayHelp():
     print("{}: display all options".format(HELP))
     print("{} <query>: intiate a search across the peers".format(SEARCH_QUERY))
@@ -327,9 +319,7 @@ def displayHelp():
     print("{} <reqId>: shows the progress of the download".format(PROGRESS))
     print("{} <reqId>: aborts the download".format(ABORT))
 
-# Parse the input commmands
-
-
+# Parse the input commmandss
 def parseCmds(cmd, peer):
     if len(cmd) < 1:
         return
