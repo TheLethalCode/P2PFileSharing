@@ -247,7 +247,7 @@ class Node(object):
     # Displays the results received till now
     def displayResults(self, qId):
         with self.queryResLock:
-            for ind, results in enumerate(self.queryRes[qId]):
+            for ind, results in enumerate(self.queryRes.get(qId, [])):
                 print("Peer {}".format(ind + 1))
 
                 for ind1, result in enumerate(results[RESULTS]):
@@ -366,7 +366,7 @@ def parseCmds(cmd, peer):
 
 if __name__ == '__main__':
 
-    peer = Node()
+    peer = Node(True)
     peer.load_state()
 
     bootstrapIP = None

@@ -37,7 +37,7 @@ class fileSystem(object):
             #     password=constants.DB_PASSWORD,
             #     database=constants.DB_NAME
             # )
-            self.fs_db = sqlite3.connect(constants.DB_NAME)
+            self.fs_db = sqlite3.connect(constants.DB_NAME, check_same_thread=False)
             self.fs_db_cursor = self.fs_db.cursor()
             print("DATABASE EXISTS")
         # except:
