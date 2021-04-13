@@ -4,7 +4,7 @@ import time
 from json.decoder import JSONDecodeError
 import uuid
 
-from constants import CHUNK_SIZE, ENCODING, EOM_CHAR, APP_PORT, SOCKET_TIMEOUT
+from constants import MSG_SIZE, ENCODING, EOM_CHAR, APP_PORT, SOCKET_TIMEOUT
 
 
 def send(ip: str, **data) -> bool:
@@ -45,7 +45,7 @@ def receive(socket: socket) -> dict:
 
     while True:
         temp = b''
-        temp = socket.recv(CHUNK_SIZE)
+        temp = socket.recv(MSG_SIZE)
 
         if temp != b'':
             if length is None:
