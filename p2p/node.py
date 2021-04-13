@@ -4,10 +4,10 @@ import time
 import copy
 import sys
 import os
-import p2p.network as network
-from p2p.constants import *
-from p2p.routingTable import routingTable
-from p2p.fileSystem import fileSystem
+import network
+from constants import *
+from routingTable import routingTable
+from fileSystem import fileSystem
 
 # TODO:- Limit the number of threads to a specific amount
 # TODO:- Garbage collection of expired results, queries, transfer requests (Or keep a limit)
@@ -106,7 +106,7 @@ class Node(object):
     # Handles the different type of incoming message
     def msgHandler(self, clientsock):
         msg = network.receive(clientsock)
-        
+
         if msg is None or (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
             return
 
@@ -311,6 +311,8 @@ class Node(object):
         self.fileSys.remove(path)
 
 # Display help for the commands
+
+
 def displayHelp():
     print("{}: display all options".format(HELP))
     print("{} <query>: intiate a search across the peers".format(SEARCH_QUERY))
@@ -320,6 +322,8 @@ def displayHelp():
     print("{} <reqId>: aborts the download".format(ABORT))
 
 # Parse the input commmandss
+
+
 def parseCmds(cmd, peer):
     if len(cmd) < 1:
         return

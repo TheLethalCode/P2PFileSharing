@@ -3,7 +3,7 @@ import socket
 import time
 from json.decoder import JSONDecodeError
 import uuid
-from p2p.constants import *
+from constants import *
 
 
 def send(ip: str, **data):
@@ -26,14 +26,15 @@ def send(ip: str, **data):
 
         data = json.dumps(data)
         data = data.encode(ENCODING)
+        print(len(data))
         data = len(data).to_bytes(4, 'big') + data
         socket = _get_socket(ip)
 
         if isTransfer:
-            data += int(1).to_bytes(1, 'big') + data
+            data = int(1).to_bytes(1, 'big') + data
             data += len(content).to_bytes(4, 'big') + content
         else:
-            data += int(0).to_bytes(1, 'big') + data
+            data = int(0).to_bytes(1, 'big') + data
 
         socket.sendall(data)
         return True
