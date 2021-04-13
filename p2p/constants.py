@@ -14,6 +14,7 @@ ENCODING = 'utf-8'          # Default encoding.
 MY_IP = '127.0.0.1'         # My IP address in the network
 SOCKET_TIMEOUT = 10.0       # Time out for receiving message
 MSG_SIZE = 4096             # Amount to receive in one go
+SOCK_SLEEP = 0.001
 
 #################### FileSystem Constants #######################################
 

@@ -4,11 +4,11 @@ import time
 from json.decoder import JSONDecodeError
 import uuid
 
-from constants import MSG_SIZE, ENCODING, EOM_CHAR, APP_PORT, SOCKET_TIMEOUT
+from constants import MSG_SIZE, ENCODING, SOCK_SLEEP, APP_PORT, SOCKET_TIMEOUT
 
 
-def send(ip: str, **data) -> bool:
-    """Send data to IP (default PORT) with EOM_CHAR at the end.
+def send(ip: str, **data):
+    """Send data to IP (default PORT).
 
     Args:
         ip (str): IP address of the receipent.
@@ -20,7 +20,7 @@ def send(ip: str, **data) -> bool:
     try:
         data = dict(data)
         data = json.dumps(data)
-        data = str(len(data)).encode(ENCODING) + data.encode(ENCODING)
+        data = len(data).to_bytes(4, 'big') + data.encode(ENCODING)
         socket = _get_socket(ip)
         socket.sendall(data)
         return True
@@ -29,7 +29,7 @@ def send(ip: str, **data) -> bool:
         return False
 
 
-def receive(socket: socket) -> dict:
+def receive(socket: socket):
     """Receive data from socket until EOM_CHAR.
 
     Args:
@@ -48,26 +48,29 @@ def receive(socket: socket) -> dict:
         temp = socket.recv(MSG_SIZE)
 
         if temp != b'':
-            if length is None:
-                length = int(temp[:4].decode(ENCODING))
+            if length is None and len(temp) >= 4:
+                length = int.from_bytes(temp[:4], 'big')
                 temp = temp[4:]
             
-            if length > len(temp):
-                buff += temp
-                length -= len(temp)
-            else:
-                buff += temp[:length]
-                try:
-                    buff = buff.decode(ENCODING)
-                    return json.loads(buff)
-                except JSONDecodeError as err:
-                    print(f"DEBUG: {err}")
-                    print("ERROR: invalid dict received!")
-                    return {}
-        time.sleep(0.01)
+            if length is not None:
+                if length > len(temp):
+                    buff += temp
+                    length -= len(temp)
+
+                else:
+                    buff += temp[:length]
+                    try:
+                        buff = buff.decode(ENCODING)
+                        return json.loads(buff)
+
+                    except JSONDecodeError as err:
+                        print(f"DEBUG: {err}")
+                        print("ERROR: invalid dict received!")
+                        return {}
+        time.sleep(SOCK_SLEEP)
 
 
-def _get_socket(ip: str) -> socket:
+def _get_socket(ip: str):
     """Get socket to the provided IP.
 
     Args:
@@ -81,7 +84,7 @@ def _get_socket(ip: str) -> socket:
     return sock
 
 
-def generate_guid() -> str:
+def generate_guid():
     """Generate a random UUID.
 
     Returns:
@@ -89,7 +92,7 @@ def generate_guid() -> str:
     """
     return str(uuid.uuid4())
 
-def generate_uuid_from_guid(guid:  str, number: int) -> str:
+def generate_uuid_from_guid(guid:  str, number: int):
     """Generate UUID from MD5 Hash of GUID and sequence number.
 
     Args:
