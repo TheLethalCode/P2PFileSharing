@@ -2,12 +2,13 @@ import p2p.constants as constants
 import sys
 import os
 import mysql.connector
-from mysql.connector.errors import ProgrammingError
+import mysql.connector.errors as connector_errors
 from binaryornot.check import is_binary
 import hashlib
 import math
 
 # TODO: Entry for DOWNLOADS
+# TODO: abort on some request id
 # TODO: Set ParentID and RequestId properly
 # TODO: modify queries to check status
 # TODO: add function to update status using fileID
@@ -38,6 +39,9 @@ class fileSystem(object):
             self.fs_db_cursor = self.fs_db.cursor()
             print("DATABASE EXISTS")
             self.view_table(constants.DB_TABLE_FILE)
+        except connector_errors.DatabaseError as ex:
+            print("Can't connect to MYSQL server on localhost")
+            print(ex)
         except:
             print("DATABASE AND TABLE DNE")
             self.fs_db = mysql.connector.connect(
@@ -57,7 +61,7 @@ class fileSystem(object):
                 + constants.FT_SIZE+" INT(255), "\
                 + constants.FT_CHECKSUM + " VARCHAR(255), "\
                 + constants.FT_PARENTID + " VARCHAR(255), "\
-                + constants.FT_RANDOMID + " INT(255), "\
+                + constants.FT_REQUESTID + " INT(255), "\
                 + constants.FT_STATUS + " VARCHAR(255), "\
                 + constants.FT_REPLICATED_TO + " VARCHAR(255)"\
                 + ")"
@@ -68,7 +72,7 @@ class fileSystem(object):
     def add_entry(self, table_name, name, path, size, checksum, parentID, randomID, status, replication):
         query = "INSERT INTO "+table_name+"(" + constants.FT_NAME+"," + constants.FT_PATH+", "\
                 + constants.FT_SIZE+", " + constants.FT_CHECKSUM + ", " + constants.FT_PARENTID + ", " \
-                + constants.FT_RANDOMID + ", " + constants.FT_STATUS + ", " + constants.FT_REPLICATED_TO + ")"\
+                + constants.FT_REQUESTID + ", " + constants.FT_STATUS + ", " + constants.FT_REPLICATED_TO + ")"\
                 + "VALUES ('%s','%s','%d','%s','%s','%s','%s','%s')" % (name,
                                                                         path, size, checksum, parentID, randomID, status, replication)
 
@@ -105,10 +109,12 @@ class fileSystem(object):
             self.fs_db.rollback()
 
     def search(self, word):
-        query = 'SELECT %s,%s,%s,%s FROM %s WHERE %s LIKE ' % (
+        query = 'SELECT %s,%s,%s,%s FROM %s WHERE (%s LIKE ' % (
             constants.FT_ID, constants.FT_NAME, constants.FT_SIZE, constants.FT_CHECKSUM, constants.DB_TABLE_FILE, constants.FT_NAME)
         query += "'%"+word+"%' "
-        query += " OR "+constants.FT_PATH+" LIKE '%"+word+"%'"
+        query += " OR "+constants.FT_PATH+" LIKE '%"+word+"%')"
+        # query += " AND ("+constants.FT_STATUS+" = "+constants.FS_UPLOADED
+        # query += " OR "+constants.FT_STATUS+" = "+constants.FS_DOWNLOAD_COMPLETE+")"
         # print(query)
         response = []
         try:
@@ -118,7 +124,7 @@ class fileSystem(object):
                 response.append({
                     constants.FILE_ID: r[0],
                     constants.FT_NAME: r[1],
-                    constants.NUM_CHUNKS: math.ceil(r[2]/constants.CHUNK_SIZE),
+                    constants.NUM_CHUNKS: int(math.ceil(r[2]/constants.CHUNK_SIZE)),
                     constants.FT_CHECKSUM: r[3]
                 })
                 # print(r)
@@ -129,18 +135,17 @@ class fileSystem(object):
         finally:
             return response
 
-    """
-        Returns as chunk of predefined ChunkSize from file using input FileID
-
-        Inputs: 
-            fileId
-            chunkNumber
-        Returns:
-            Chunk, if accessible
-            False, if File DNE or File is not Binary
-    """
-
     def getContent(self, fileId, chunkNumber):
+        """
+            Returns as chunk of predefined ChunkSize from file using input FileID
+
+            Inputs: 
+                fileId
+                chunkNumber
+            Returns:
+                Chunk, if accessible
+                False, if File DNE or File is not Binary
+        """
         fileDetails = self.get_fileDetails_from_fileID(fileId)
         file_path = fileDetails[constants.FT_PATH]
         if is_binary(file_path) == False:
@@ -168,7 +173,7 @@ class fileSystem(object):
             constants.FT_SIZE: a[3],
             constants.FT_CHECKSUM: a[4],
             constants.FT_PARENTID: a[5],
-            constants.FT_RANDOMID: a[6],
+            constants.FT_REQUESTID: a[6],
             constants.FT_STATUS: a[7],
             constants.FT_REPLICATED_TO: a[8]
         }
@@ -180,8 +185,11 @@ class fileSystem(object):
         result = self.execute_query(query, True)[0]
         return self.get_list_item_to_fileSys_item(result)
 
-    def upload_file(self, filepath):
-        pass
+    def get_fileDetails_from_reqID(self, reqId):
+        query = "SELECT * from "+constants.DB_TABLE_FILE + \
+            " where "+constants.FT_REQUESTID+" = "+str(reqId)
+        result = self.execute_query(query, True)[0]
+        return self.get_list_item_to_fileSys_item(result)
 
     def remove_table(self, table_name):
         query = "DROP TABLE "+table_name
@@ -250,12 +258,18 @@ class fileSystem(object):
 
     def done(self, reqId):
         folderName = self.get_foldername_using_reqId(reqId)
-        filename = self.reqIdDict[reqId]
+        filename = "test_"+self.reqIdDict[reqId]
+        # filename = self.reqIdDict[reqId]
+        print(folderName, filename)
         self.join_chunks(folderName, filename)
+        filepath = os.path.join(filename)
+        self.add_entry(constants.DB_TABLE_FILE, filename.split(".")[0], filepath, os.stat(
+            filepath).st_size, self.checksum_large(filepath), 0, reqId, constants.FS_DOWNLOAD_COMPLETE, None)
         # TODO insert into table
         # Use this downloadComplete to point to the fileId
         self.downloadComplete[reqId] = filename
-        self.reqIdDict.popitem(reqId)
+        print(type(self.reqIdDict))
+        self.reqIdDict.pop(reqId)
         return True
 
     def get_foldername_using_reqId(self, request_id):
@@ -273,6 +287,14 @@ class fileSystem(object):
                 filepath = os.path.join(fromdir, filename)
                 with open(filepath, 'rb') as input:
                     output.write(input.read(constants.CHUNK_SIZE))
+
+    def update_status_using_reqId(self, table_name, reqId, newStatus):
+        if reqId > 0:
+            query = "UPDATE "+table_name+"SET "+constants.FT_STATUS+" = " + \
+                newStatus+" WHERE "+constants.FT_REQUESTID+"="+str(reqId)
+            print(query)
+            self.execute_query(query)
+        pass
 
     def isFinished(self, reqId):
         if reqId not in self.downloadComplete.keys():
@@ -307,14 +329,15 @@ class fileSystem(object):
     def removeShare(self, path):
         self.remove_entry(constants.DB_TABLE_FILE, constants.FT_PATH, path)
         return True
-        # def test_done(self):
-        #     for i in range(math.ceil(16712//constants.CHUNK_SIZE)):
-        #         chunk = self.get_content(4, i)
-        #         mssg = {
-        #             'Data': chunk,
-        #             'Chunk number': i,
-        #             'Request ID': 124
-        #         }
-        #         self.writeChunk(mssg)
-        #     print(self.done(124))
-        #     pass
+
+    def test_done(self):
+        for i in range(math.ceil(16712//constants.CHUNK_SIZE)+1):
+            chunk = self.getContent(4, i)
+            mssg = {
+                'Data': chunk,
+                'Chunk number': i,
+                'Request ID': 124
+            }
+            self.writeChunk(mssg)
+        print(self.done(124))
+        pass

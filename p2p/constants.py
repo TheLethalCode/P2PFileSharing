@@ -42,7 +42,7 @@ FT_PATH = "path"
 FT_SIZE = "size"
 FT_CHECKSUM = "checksum"
 FT_PARENTID = "parent_id"
-FT_RANDOMID = "random_id"
+FT_REQUESTID = "random_id"
 FT_STATUS = "status"
 FT_REPLICATED_TO = "replication_node"
 FT_ID = "ID"
@@ -62,7 +62,7 @@ SOCKET_TIMEOUT = 10.0
 # chunk size
 CHUNK_SIZE = 4096
 # My IP address in the network
-MY_IP = '127.0.0.1'
+MY_IP = '192.168.227.1'
 # Num threads for requesting content
 NUM_THREADS = 10
 
