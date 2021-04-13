@@ -79,7 +79,7 @@ def _get_socket(ip: str):
         socket: Socket to the IP.
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(ip, APP_PORT)
+    sock.connect((ip, APP_PORT))
     return sock
 
 
