@@ -149,7 +149,7 @@ class routingTable(object):
             recvPongTemp = copy.copy(self.recvPong)
             self.sentPing = []
             self.recvPong = []
-            self.mutex.release()
+            self.mutexPP.release()
             # self.mutexPP.acquire()
             for guid in sentPingTemp:
                 # self.mutex.acquire()
