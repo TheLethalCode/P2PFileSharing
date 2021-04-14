@@ -232,7 +232,7 @@ class Node(object):
     # Sends a Query for the required content to all its neighbours
     def findContent(self, searchQ):
 
-        if len(searchQ) < 3:
+        if len(searchQ) < QUERY_MIN_SIZE:
             print("Query too small!")
             return
 

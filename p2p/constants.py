@@ -194,6 +194,7 @@ TRANS_WAIT = 7                  # The time a thread waits before retrying during
 DOWN_QUEUE = 10                 # The maximum number of inprogress downloads
 QUERY_QUEUE = 5                 # The maximum number of different queries
 REP_QUERY_CACHE = 1000          # Number of intermediate queries to hold
+QUERY_MIN_SIZE = 3              # Min query size
 
 # Commands
 HELP = 'help'                   # The Help Command
