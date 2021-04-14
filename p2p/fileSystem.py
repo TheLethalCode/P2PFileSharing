@@ -260,10 +260,10 @@ class fileSystem(object):
     def done(self, reqId):
         folderName = os.path.join(
             constants.INCOMPLETE_FOLDER, str(self.get_foldername_using_reqId(reqId)))
-        filename = constants.DOWNLOAD_FOLDER + self.reqIdDict[reqId]
+        filename = self.reqIdDict[reqId]
         # filename = self.reqIdDict[reqId]
         print(folderName, filename)
-        self.join_chunks(folderName, filename)
+        self.join_chunks(folderName, constants.DOWNLOAD_FOLDER + filename)
         filepath = filename
         self.add_entry(constants.DB_TABLE_FILE, filename.split(".")[0], filepath, os.stat(
             filepath).st_size, self.checksum_large(filepath), 0, 0, constants.FS_DOWNLOAD_COMPLETE, None)

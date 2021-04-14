@@ -163,10 +163,13 @@ class Node(object):
                     }
                     network.send(msg[SOURCE_IP], **reponseMsg)
 
-                # with self.repQuerLock:
-                #     while len(self.repQuerQueue) >= REP_QUERY_CACHE:
-                #         self.repQuer.discard(self.repQuerQueue.get())
-                #     self.repQuer.add(msg[QUERY_ID])
+                with self.repQuerLock:
+                    #     while len(self.repQuerQueue) >= REP_QUERY_CACHE:
+                    #         self.repQuer.discard(self.repQuerQueue.get())
+                    self.repQuer.add(msg[QUERY_ID])
+
+                msg[SEND_IP] = MY_IP
+                msg[SEND_GUID] = self.GUID
 
                 for neighbours in self.routTab.neighbours():
                     msg[DEST_IP] = neighbours[0]
@@ -354,6 +357,7 @@ class Node(object):
             with self.chunkLeftLock:
                 self.chunkLeft[reqId] = self.pausedChunkLeft[reqId]
                 del self.pausedChunkLeft[reqId]
+                numChunks = self.chunkLeft[reqId][0]
 
             for ind in range(NUM_THREADS):
                 reqCopy = copy.deepcopy(self.chunkLeftTransferReq[reqId])
@@ -391,17 +395,15 @@ class Node(object):
         for ind, reqId in enumerate(goingOn):
             print("{}. ReqId - {}, File - {}, Progress - {} / {}".format(
                 ind, reqId, self.fileSys.reqId_to_name(reqId),
-                goingOn[reqId][0] - len(goingOn[reqId][1])),
-                len(goingOn[reqId][1])
-            )
+                goingOn[reqId][0] - len(goingOn[reqId][1]),
+                goingOn[reqId][0]))
 
         print("\nPaused\n============")
         for ind, reqId in enumerate(paused):
             print("{}. ReqId - {}, File - {}, Progress - {} / {}".format(
                 ind, reqId, self.fileSys.reqId_to_name(reqId),
-                paused[reqId][0] - len(paused[reqId][1])),
-                len(paused[reqId][1])
-            )
+                (paused[reqId][0] - len(paused[reqId][1])),
+                paused[reqId][0]))
 
     # Share Files
     def shareContent(self, path):
@@ -414,7 +416,7 @@ class Node(object):
 
     # List all shared files
     def listFiles(self):
-        for entry in self.fileSys.view_table():
+        for entry in self.fileSys.view_table(DB_TABLE_FILE):
             print("Id - {}, Name - {}, Path - {}, Size - {:.2f} kB, Type - {}".format(
                 entry[FT_ID], entry[FT_NAME], entry[FT_PATH],
                 entry[FT_SIZE] / 1024, entry[FT_STATUS]
