@@ -164,8 +164,8 @@ class Node(object):
                     network.send(msg[SOURCE_IP], **reponseMsg)
 
                 with self.repQuerLock:
-                    #     while len(self.repQuerQueue) >= REP_QUERY_CACHE:
-                    #         self.repQuer.discard(self.repQuerQueue.get())
+                    while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
+                        self.repQuer.discard(self.repQuerQueue.get())
                     self.repQuer.add(msg[QUERY_ID])
 
                 msg[SEND_IP] = MY_IP
@@ -240,14 +240,13 @@ class Node(object):
             print("Query too small!")
             return
 
-        # if len(self.queryResQueue) >= QUERY_QUEUE:
-        #     print("Throwing away older queries!")
-        #     while len(self.queryResQueue) >= QUERY_QUEUE:
-        #         del self.queryRes[self.queryResQueue.get()]
-
-        qId = network.generate_uuid_from_guid(self.GUID, self.queryCnt)
-
         with self.queryResLock:
+            if self.queryResQueue.qsize() >= QUERY_QUEUE:
+                print("Throwing away older queries!")
+                while self.queryResQueue.qsize() >= QUERY_QUEUE:
+                    del self.queryRes[self.queryResQueue.get()]
+
+            qId = network.generate_uuid_from_guid(self.GUID, self.queryCnt)
             self.queryRes[qId] = []
             self.queryResQueue.put(qId)
 
@@ -278,8 +277,7 @@ class Node(object):
                 for ind1, result in enumerate(results[RESULTS]):
                     print("\tResult {}".format(ind1 + 1))
                     print("\t\tName - {}".format(result[FT_NAME]))
-                    print(
-                        "\t\tSize - {:.2f} kB".format(result[FT_SIZE] / 1024))
+                    print("\t\tSize - {:.2f} kB".format(result[FT_SIZE] / 1024))
                     print("\t\tChunks - {}".format(result[NUM_CHUNKS]))
                     print("---------------------\n")
 
