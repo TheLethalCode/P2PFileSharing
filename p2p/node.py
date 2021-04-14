@@ -274,7 +274,7 @@ class Node(object):
                 for ind1, result in enumerate(results[RESULTS]):
                     print("\tResult {}".format(ind1 + 1))
                     print("\t\tName - {}".format(result[FT_NAME]))
-                    print("\t\tSize - {}".format(result[FT_SIZE]))
+                    print("\t\tSize - {:.2f} kB".format(result[FT_SIZE] / 1024))
                     print("\t\tChunks - {}".format(result[NUM_CHUNKS]))
                     print("---------------------\n")
 
@@ -413,9 +413,9 @@ class Node(object):
     # List all shared files
     def listFiles(self):
         for entry in self.fileSys.view_table():
-            print("Id - {}, Name - {}, Path - {}, Size - {:.2f}, Type - {}".format(
+            print("Id - {}, Name - {}, Path - {}, Size - {:.2f} kB, Type - {}".format(
                 entry[FT_ID], entry[FT_NAME], entry[FT_PATH], 
-                entry[FT_SIZE], entry[FT_STATUS]
+                entry[FT_SIZE] / 1024, entry[FT_STATUS]
                 )
             )
 
