@@ -4,18 +4,14 @@ import time
 import copy
 import sys
 import os
+import queue
 import network
 from constants import *
 from routingTable import routingTable
 from fileSystem import fileSystem
 
-# TODO:- Limit the number of threads to a specific amount
-# TODO:- Garbage collection of expired results, queries, transfer requests (Or keep a limit)
 # TODO:- Save state periodically and load
-# TODO:- Make the transfer for each thread faster by using an intermediate signal of sorts
-# without waiting for the timeout and recheck, handle abort properly
 # TODO:- Error Handling and logging
-# TODO:- List Table, pause, restart, list pending downloads
 
 class Node(object):
 
@@ -43,15 +39,21 @@ class Node(object):
         # Responses for query | queryRes[qId] = [query_rsp_msgs]
         self.queryCnt = 0
         self.queryRes = {}
+        self.queryResQueue = queue.Queue()
         self.queryResLock = threading.RLock()
 
         # Chunks to be requested | chunkLeft[qId] = (total_chunks, set(chunks left))
         self.chunkLeft = {}
         self.chunkLeftLock = threading.RLock()
+        self.chunkLeftTransferReq = {}
         self.reqCnt = 0
+
+        # Paused downloads chunks
+        self.pausedChunkLeft = {}
 
         # Repeated queries
         self.repQuer = set()
+        self.repQuerQueue = queue.Queue()
         self.repQuerLock = threading.RLock()
 
     # Load Saved State
@@ -161,6 +163,8 @@ class Node(object):
                     network.send(msg[SOURCE_IP], **reponseMsg)
 
                 with self.repQuerLock:
+                    while len(self.repQuerQueue) >= REP_QUERY_CACHE:
+                        self.repQuer.discard(self.repQuerQueue.get())
                     self.repQuer.add(msg[QUERY_ID])
 
                 for neighbours in self.routTab.neighbours():
@@ -200,6 +204,7 @@ class Node(object):
                     if not bool(self.chunkLeft[msg[REQUEST_ID]][1]):
                         self.fileSys.done(msg[REQUEST_ID])
                         del self.chunkLeft[msg[REQUEST_ID]]
+                        del self.chunkLeftTransferReq[msg[REQUEST_ID]]
 
     # Function for a thread to use for requesting transfer of content
     def requestTransfer(self, tid, numChunks, msg):
@@ -227,10 +232,20 @@ class Node(object):
     # Sends a Query for the required content to all its neighbours
     def findContent(self, searchQ):
 
+        if len(searchQ) < 3:
+            print("Query too small!")
+            return
+
+        if len(self.queryResQueue) >= QUERY_QUEUE:
+            print("Throwing away older queries!")
+            while len(self.queryResQueue) >= QUERY_QUEUE:
+                del self.queryRes[self.queryResQueue.get()]
+
         qId = network.generate_uuid_from_guid(self.GUID, self.queryCnt)
 
         with self.queryResLock:
             self.queryRes[qId] = []
+            self.queryResQueue.put(qId)
 
         queryMsg = {
             TYPE: QUERY,
@@ -247,7 +262,6 @@ class Node(object):
             queryMsg[DEST_IP] = neighbours[0]
             queryMsg[DEST_GUID] = neighbours[1]
             network.send(queryMsg[DEST_IP], **queryMsg)
-            print(queryMsg[DEST_IP])
 
         print("Query Id: {}".format(qId))
 
@@ -259,13 +273,23 @@ class Node(object):
 
                 for ind1, result in enumerate(results[RESULTS]):
                     print("\tResult {}".format(ind1 + 1))
-                    print("\t{}".format(result))
+                    print("\t\tName - {}".format(result[FT_NAME]))
+                    print("\t\tSize - {}".format(result[FT_SIZE]))
+                    print("\t\tChunks - {}".format(result[NUM_CHUNKS]))
                     print("---------------------\n")
 
-                print("\n===================\n")
+                print("===================\n")
 
     # Choose the desired response for file transfer
     def chooseResults(self, qId, peerNum, resNum):
+
+        with self.chunkLeftLock:
+            cnt = len(self.chunkLeft) + len(self.pausedChunkLeft)
+        
+        if cnt >= DOWN_QUEUE:
+            print("Too many pending downloads! Abort some before trying again.")
+            return
+
         try:
             with self.queryResLock:
                 result = self.queryRes[qId][peerNum]
@@ -289,6 +313,7 @@ class Node(object):
             self.chunkLeft[transferReq[REQUEST_ID]] = (numChunks, set())
             for i in range(numChunks):
                 self.chunkLeft[transferReq[REQUEST_ID]][1].add(i)
+            self.chunkLeftTransferReq[transferReq[REQUEST_ID]] = transferReq
 
         for ind in range(NUM_THREADS):
             reqCopy = copy.deepcopy(transferReq)
@@ -305,16 +330,76 @@ class Node(object):
 
         if prog is not None:
             print("Done {} / {}".format(prog[0] - len(prog[1]), prog[0]))
+
         elif self.fileSys.isFinished(reqId):
             print("Download finished")
+
         else:
             print("Incorrect ID")
+
+    # Pause download
+    def pause(self, reqId):
+        with self.chunkLeftLock:
+            if reqId in self.chunkLeft:
+                self.pausedChunkLeft[reqId] = self.chunkLeft[reqId]
+                del self.chunkLeft[reqId]
+            else:
+                print("No ongoing downloads with given Request Id")
+
+    # Resume paused download
+    def resume(self, reqId):
+        if reqId in self.pausedChunkLeft:
+            with self.chunkLeftLock:
+                self.chunkLeft[reqId] = self.pausedChunkLeft[reqId]
+                del self.pausedChunkLeft[reqId]
+
+            for ind in range(NUM_THREADS):
+                reqCopy = copy.deepcopy(self.chunkLeftTransferReq[reqId])
+                thr = threading.Thread(target=self.requestTransfer,
+                                    args=(ind, numChunks, reqCopy))
+                thr.daemon = True
+                thr.start()
+                
+        else:
+            print("No paused downloads with given Request Id!")
 
     # Abort download
     def abort(self, reqId):
         with self.chunkLeftLock:
-            del self.chunkLeft[reqId]
-        self.fileSys.abort_download(reqId)
+            if reqId in self.chunkLeft:
+                del self.chunkLeft[reqId]
+                del self.chunkLeftTransferReq[reqId]
+                self.fileSys.abort_download(reqId)
+
+            elif reqId in self.pausedChunkLeft:
+                del self.pausedChunkLeft[reqId]
+                del self.chunkLeftTransferReq[reqId]
+                self.fileSys.abort_download(reqId)
+
+            else:
+                print("No ongoing downloads with given Request ID")
+
+    # List all incomplete downloads
+    def pending(self):
+        with self.chunkLeftLock:
+            goingOn = copy.deepcopy(self.chunkLeft)
+            paused = copy.deepcopy(self.pausedChunkLeft)
+
+        print("In progress\n============")
+        for ind, reqId in enumerate(goingOn):
+            print("{}. ReqId - {}, File - {}, Progress - {} / {}".format(
+                    ind, reqId, self.fileSys.reqId_to_name(reqId), 
+                    goingOn[reqId][0] - len(goingOn[reqId][1])), 
+                    len(goingOn[reqId][1])
+                )
+
+        print("\nPaused\n============")
+        for ind, reqId in enumerate(paused):
+            print("{}. ReqId - {}, File - {}, Progress - {} / {}".format(
+                    ind, reqId, self.fileSys.reqId_to_name(reqId), 
+                    paused[reqId][0] - len(paused[reqId][1])), 
+                    len(paused[reqId][1])
+                )
 
     # Share Files
     def shareContent(self, path):
@@ -325,51 +410,87 @@ class Node(object):
     def removeShare(self, path):
         self.fileSys.removeShare(path)
 
+    # List all shared files
+    def listFiles(self):
+        for entry in self.fileSys.view_table():
+            print("Id - {}, Name - {}, Path - {}, Size - {:.2f}, Type - {}".format(
+                entry[FT_ID], entry[FT_NAME], entry[FT_PATH], 
+                entry[FT_SIZE], entry[FT_STATUS]
+                )
+            )
+
+
 # Display help for the commands
-
-
 def displayHelp():
     print("{}: display all options".format(HELP))
     print("{} <query>: intiate a search across the peers".format(SEARCH_QUERY))
     print("{} <qid>: display results till now".format(DISPLAY))
     print("{} <qid> <peerNum> <resNum>: choose a result to download".format(CHOOSE))
     print("{} <reqId>: shows the progress of the download".format(PROGRESS))
+    print("{} <reqId>: pause the download".format(PAUSE))
+    print("{} <reqId>: restart the download".format(UNPAUSE))
     print("{} <reqId>: aborts the download".format(ABORT))
+    print("{}: show pending downloads".format(PENDING))
     print("{} <path>: share the specified path with the network".format(SHARE))
     print("{} <path>: remove the shared content from the network".format(UNSHARE))
+    print("{}: show shared files".format(LIST))
+
 
 # Parse the input commmandss
-
-
 def parseCmds(cmd, peer):
     if len(cmd) < 1:
         return
 
+    # Help
     elif cmd[0].lower() == HELP:
         displayHelp()
 
+    # Search Query
     elif cmd[0].lower() == SEARCH_QUERY and len(cmd) > 1:
         query = ' '.join(cmd[1:])
         peer.findContent(query)
 
+    # Display Results
     elif cmd[0].lower() == DISPLAY and len(cmd) == 2:
         peer.displayResults(cmd[1])
 
+    # Choose Results
     elif cmd[0].lower() == CHOOSE and len(cmd) == 4:
         peer.chooseResults(cmd[1], int(cmd[2]) - 1, int(cmd[3]) - 1)
 
+    # Progress of download
     elif cmd[0].lower() == PROGRESS and len(cmd) == 2:
         peer.checkProgress(int(cmd[1]))
 
+    # Pause download
+    elif cmd[0].lower() == PAUSE and len(cmd) == 2:
+        peer.pause(int(cmd[1]))
+
+    # Resume download
+    elif cmd[0].lower() == UNPAUSE and len(cmd) == 2:
+        peer.resume(int(cmd[1]))
+
+    # Print pending downloads
+    elif cmd[0].lower() == PENDING and len(cmd) == 1:
+        peer.pending()
+
+    # Abort Download
     elif cmd[0].lower() == ABORT and len(cmd) == 2:
         peer.abort(int(cmd[1]))
 
+    # Share files
     elif cmd[0].lower() == SHARE and len(cmd) == 2:
         peer.shareContent(cmd[1])
 
+    # Remove share files
     elif cmd[0].lower() == UNSHARE and len(cmd) == 2:
         peer.removeShare(cmd[1])
 
+    # List shared files
+    elif cmd[0].lower() == LIST and len(cmd) == 1:
+        peer.listFiles()
+
+    # Incorrect command
     else:
         print("Wrong Command or format!")
         displayHelp()
