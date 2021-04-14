@@ -12,7 +12,7 @@ LOGGER.info("Logger Initialized!")
 APP_PORT = 4001             # Default Port for creating socket connection.
 # ENCODING = 'utf-16'          # Default encoding.
 ENCODING = 'utf-8'
-MY_IP = '192.168.191.4'         # My IP address in the network
+MY_IP = '192.168.191.232'         # My IP address in the network
 SOCKET_TIMEOUT = 10.0       # Time out for receiving message
 MSG_SIZE = 4096             # Amount to receive in one go
 SOCK_SLEEP = 0.001
@@ -20,7 +20,7 @@ SOCK_SLEEP = 0.001
 #################### FileSystem Constants #######################################
 
 FILESYS_PATH = "fs.pkl"         #
-CHUNK_SIZE = 4096              # Chunk Size (in Bytes) 65536 bytes = 64KB
+CHUNK_SIZE = 65536              # Chunk Size (in Bytes) 65536 bytes = 64KB
 
 DOWNLOAD_FOLDER = "downloads/"
 INCOMPLETE_FOLDER = "incomplete/"
@@ -177,8 +177,8 @@ CHUNK_NO = 'Chunk number'
 CONTENT = 'Data'
 
 ############################# Routing Table Constants ###############
-UPDATE_FREQ = 500
-INACTIVE_LIMIT = 500
+UPDATE_FREQ = 10
+INACTIVE_LIMIT = 5
 
 IP_ADDR = 'IPAddr'
 RT_PORT = 'Port'
@@ -191,7 +191,7 @@ RT_ISCENTRE = 'IsCentre'
 LISTEN_QUEUE = 25               # The size of the connections queue
 NUM_THREADS = 10                # The number of threads to use for the transfer
 # The amount of time an individual thread waits before retrying when transferring data
-TRANS_WAIT = 10
+TRANS_WAIT = 7
 
 # Commands
 HELP = 'help'                   # The Help Command

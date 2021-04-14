@@ -15,7 +15,7 @@ from fileSystem import fileSystem
 # TODO:- Make the transfer for each thread faster by using an intermediate signal of sorts
 # without waiting for the timeout and recheck, handle abort properly
 # TODO:- Error Handling and logging
-
+# TODO:- List Table, pause, restart, list pending downloads
 
 class Node(object):
 
@@ -377,7 +377,7 @@ def parseCmds(cmd, peer):
 
 if __name__ == '__main__':
 
-    peer = Node()
+    peer = Node(True)
     peer.load_state()
 
     bootstrapIP = None
