@@ -3,8 +3,6 @@ import sqlite3
 import math
 import hashlib
 from binaryornot.check import is_binary
-import mysql.connector.errors as connector_errors
-import mysql.connector
 import base64
 import os
 import re
@@ -292,7 +290,6 @@ class fileSystem(object):
             parts = os.listdir(fromdir)
             parts.sort(key=lambda f: int(re.sub('\D', '', f)))
             for filename in parts:
-                print(filename)
                 filepath = os.path.join(fromdir, filename)
                 with open(filepath, 'rb') as input:
                     output.write(input.read())
