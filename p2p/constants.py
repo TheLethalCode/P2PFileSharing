@@ -190,8 +190,11 @@ RT_ISCENTRE = 'IsCentre'
 ############################# Node Constants ########################
 LISTEN_QUEUE = 25               # The size of the connections queue
 NUM_THREADS = 10                # The number of threads to use for the transfer
-# The amount of time an individual thread waits before retrying when transferring data
-TRANS_WAIT = 7
+TRANS_WAIT = 7                  # The time a thread waits before retrying during transfer
+DOWN_QUEUE = 10                 # The maximum number of inprogress downloads
+QUERY_QUEUE = 5                 # The maximum number of different queries
+REP_QUERY_CACHE = 1000          # Number of intermediate queries to hold
+QUERY_MIN_SIZE = 3              # Min query size
 
 # Commands
 HELP = 'help'                   # The Help Command
@@ -202,3 +205,7 @@ PROGRESS = 'progress'           # Command to display the progress
 ABORT = 'abort'                 # Abort the download
 SHARE = 'share'                 # Share Content
 UNSHARE = 'remove'              # Unshare Content
+LIST = 'list'                   # List Shared Files
+PAUSE = 'pause'                 # Pause download
+UNPAUSE = 'resume'            # Restart download
+PENDING = 'pending'             # Pending downloads

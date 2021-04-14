@@ -26,7 +26,6 @@ def send(ip: str, **data):
 
         data = json.dumps(data)
         data = data.encode(ENCODING)
-        print(len(data))
         data = len(data).to_bytes(4, 'big') + data
         socket = _get_socket(ip)
 
