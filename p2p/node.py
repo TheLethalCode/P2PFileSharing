@@ -13,6 +13,7 @@ from fileSystem import fileSystem
 # TODO:- Save state periodically and load
 # TODO:- Error Handling and logging
 
+
 class Node(object):
 
     def __init__(self, isBootstrap=False):
@@ -112,8 +113,8 @@ class Node(object):
             return
 
         if msg[TYPE] != TRANSFER_FILE:
-            print(msg)  
-            
+            print(msg)
+
         if msg[TYPE] == JOIN:
             joinAck = {
                 TYPE: JOIN_ACK,
@@ -163,9 +164,12 @@ class Node(object):
                     network.send(msg[SOURCE_IP], **reponseMsg)
 
                 with self.repQuerLock:
-                    while len(self.repQuerQueue) >= REP_QUERY_CACHE:
-                        self.repQuer.discard(self.repQuerQueue.get())
+                    #     while len(self.repQuerQueue) >= REP_QUERY_CACHE:
+                    #         self.repQuer.discard(self.repQuerQueue.get())
                     self.repQuer.add(msg[QUERY_ID])
+
+                msg[SEND_IP] = MY_IP
+                msg[SEND_GUID] = self.GUID
 
                 for neighbours in self.routTab.neighbours():
                     msg[DEST_IP] = neighbours[0]
@@ -236,10 +240,10 @@ class Node(object):
             print("Query too small!")
             return
 
-        if len(self.queryResQueue) >= QUERY_QUEUE:
-            print("Throwing away older queries!")
-            while len(self.queryResQueue) >= QUERY_QUEUE:
-                del self.queryRes[self.queryResQueue.get()]
+        # if len(self.queryResQueue) >= QUERY_QUEUE:
+        #     print("Throwing away older queries!")
+        #     while len(self.queryResQueue) >= QUERY_QUEUE:
+        #         del self.queryRes[self.queryResQueue.get()]
 
         qId = network.generate_uuid_from_guid(self.GUID, self.queryCnt)
 
@@ -274,7 +278,8 @@ class Node(object):
                 for ind1, result in enumerate(results[RESULTS]):
                     print("\tResult {}".format(ind1 + 1))
                     print("\t\tName - {}".format(result[FT_NAME]))
-                    print("\t\tSize - {:.2f} kB".format(result[FT_SIZE] / 1024))
+                    print(
+                        "\t\tSize - {:.2f} kB".format(result[FT_SIZE] / 1024))
                     print("\t\tChunks - {}".format(result[NUM_CHUNKS]))
                     print("---------------------\n")
 
@@ -285,7 +290,7 @@ class Node(object):
 
         with self.chunkLeftLock:
             cnt = len(self.chunkLeft) + len(self.pausedChunkLeft)
-        
+
         if cnt >= DOWN_QUEUE:
             print("Too many pending downloads! Abort some before trying again.")
             return
@@ -352,14 +357,15 @@ class Node(object):
             with self.chunkLeftLock:
                 self.chunkLeft[reqId] = self.pausedChunkLeft[reqId]
                 del self.pausedChunkLeft[reqId]
+                numChunks = self.chunkLeft[reqId][0]
 
             for ind in range(NUM_THREADS):
                 reqCopy = copy.deepcopy(self.chunkLeftTransferReq[reqId])
                 thr = threading.Thread(target=self.requestTransfer,
-                                    args=(ind, numChunks, reqCopy))
+                                       args=(ind, numChunks, reqCopy))
                 thr.daemon = True
                 thr.start()
-                
+
         else:
             print("No paused downloads with given Request Id!")
 
@@ -388,18 +394,16 @@ class Node(object):
         print("In progress\n============")
         for ind, reqId in enumerate(goingOn):
             print("{}. ReqId - {}, File - {}, Progress - {} / {}".format(
-                    ind, reqId, self.fileSys.reqId_to_name(reqId), 
-                    goingOn[reqId][0] - len(goingOn[reqId][1])), 
-                    len(goingOn[reqId][1])
-                )
+                ind, reqId, self.fileSys.reqId_to_name(reqId),
+                goingOn[reqId][0] - len(goingOn[reqId][1]),
+                goingOn[reqId][0]))
 
         print("\nPaused\n============")
         for ind, reqId in enumerate(paused):
             print("{}. ReqId - {}, File - {}, Progress - {} / {}".format(
-                    ind, reqId, self.fileSys.reqId_to_name(reqId), 
-                    paused[reqId][0] - len(paused[reqId][1])), 
-                    len(paused[reqId][1])
-                )
+                ind, reqId, self.fileSys.reqId_to_name(reqId),
+                (paused[reqId][0] - len(paused[reqId][1])),
+                paused[reqId][0]))
 
     # Share Files
     def shareContent(self, path):
@@ -412,11 +416,11 @@ class Node(object):
 
     # List all shared files
     def listFiles(self):
-        for entry in self.fileSys.view_table():
+        for entry in self.fileSys.view_table(DB_TABLE_FILE):
             print("Id - {}, Name - {}, Path - {}, Size - {:.2f} kB, Type - {}".format(
-                entry[FT_ID], entry[FT_NAME], entry[FT_PATH], 
+                entry[FT_ID], entry[FT_NAME], entry[FT_PATH],
                 entry[FT_SIZE] / 1024, entry[FT_STATUS]
-                )
+            )
             )
 
 
@@ -498,7 +502,7 @@ def parseCmds(cmd, peer):
 
 if __name__ == '__main__':
 
-    peer = Node(True)
+    peer = Node()
     peer.load_state()
 
     bootstrapIP = None

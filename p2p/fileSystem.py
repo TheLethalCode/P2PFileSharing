@@ -11,15 +11,12 @@ import sys
 import constants as constants
 import threading
 
-# TODO: Entry for DOWNLOADS
-# TODO: abort on some request id
-# TODO: Set ParentID and RequestId properly
-# TODO: modify queries to check status
-# TODO: add function to update status using fileID
-# TODO: return correctly the response in search()
-# TODO: request removal of replication when removing content
+# TODO: REPLICATION
+# TODO: --> Set ParentID and RequestId properly
+# TODO: --> request removal of replication when removing content
 # TODO: saving states of dicts
-# TODO: test multiple chunks of files
+# TODO: clean code
+# TODO: return None at proper places instead of false
 
 
 class fileSystem(object):
@@ -62,7 +59,7 @@ class fileSystem(object):
             with self.databaseLock:
                 self.fs_db_cursor.execute(query)
                 self.fs_db.commit()
-            self.view_table(constants.DB_TABLE_FILE)
+            print(*self.view_table(constants.DB_TABLE_FILE), sep='\n')
         except Exception as ex:
             print(ex)
             pass
@@ -95,26 +92,24 @@ class fileSystem(object):
     def view_table(self, table_name):
         query = "SELECT * FROM "+table_name
         print(query)
-
+        response = []
         try:
             with self.databaseLock:
                 self.fs_db_cursor.execute(query)
                 result = self.fs_db_cursor.fetchall()
             for r in result:
-                print(r)
+                response.append(self.get_list_item_to_fileSys_item(r))
+            return response
         except Exception as Ex:
             # TODO ADD SOME LOGGING MECHANISM
             print(Ex)
-            self.fs_db.rollback()
+            return None
 
     def search(self, word):
         query = 'SELECT %s,%s,%s,%s FROM %s WHERE (%s LIKE ' % (
             constants.FT_ID, constants.FT_NAME, constants.FT_SIZE, constants.FT_CHECKSUM, constants.DB_TABLE_FILE, constants.FT_NAME)
         query += "'%"+word+"%' "
         query += " OR "+constants.FT_PATH+" LIKE '%"+word+"%')"
-        # query += " AND ("+constants.FT_STATUS+" = "+constants.FS_UPLOADED
-        # query += " OR "+constants.FT_STATUS+" = "+constants.FS_DOWNLOAD_COMPLETE+")"
-        # print(query)
         response = []
         try:
             with self.databaseLock:
@@ -125,11 +120,10 @@ class fileSystem(object):
                     constants.FILE_ID: r[0],
                     constants.FT_NAME: r[1],
                     constants.NUM_CHUNKS: int(math.ceil(r[2]/constants.CHUNK_SIZE)),
-                    constants.FT_CHECKSUM: r[3]
+                    constants.FT_CHECKSUM: r[3],
+                    constants.FT_SIZE: r[2]
                 })
-                # print(r)
         except Exception as Ex:
-            # TODO ADD SOME LOGGING MECHANISM
             print(Ex)
             self.fs_db.rollback()
         finally:
@@ -139,7 +133,7 @@ class fileSystem(object):
         """
             Returns as chunk of predefined ChunkSize from file using input FileID
 
-            Inputs: 
+            Inputs:
                 fileId
                 chunkNumber
             Returns:
@@ -161,7 +155,8 @@ class fileSystem(object):
                         constants.CNT_CHUNK: readChunk,
                         constants.CNT_FILENAME: fileDetails[constants.FT_NAME],
                         constants.CNT_CHECKSUM: self.checksum(readChunk),
-                        constants.CNT_FILEPATH: fileDetails[constants.FT_PATH]
+                        constants.CNT_FILEPATH: fileDetails[constants.FT_PATH],
+                        constants.CNT_SIZE: fileDetails[constants.FT_SIZE]
                     }
             except Exception as Ex:
                 print(Ex)
@@ -254,23 +249,24 @@ class fileSystem(object):
             if mssg[constants.REQUEST_ID] not in self.reqIdDict.keys():
                 self.reqIdDict[mssg[constants.REQUEST_ID]
                                ] = filepath.split("/")[-1]
-            if os.path.isdir(fileName) == False:
-                os.mkdir(fileName)
-            with open(fileName+"/"+str(mssg[constants.CHUNK_NO]), "wb") as f:
+            if os.path.isdir(constants.INCOMPLETE_FOLDER + fileName) == False:
+                os.mkdir(constants.INCOMPLETE_FOLDER+fileName)
+            with open(os.path.join(constants.INCOMPLETE_FOLDER, fileName, str(mssg[constants.CHUNK_NO])), "wb") as f:
                 f.write(chunk)
             print("Writing Chunk Number %s to %s is Successful" % (
                   str(mssg[constants.CHUNK_NO]), fileName))
             return True
 
     def done(self, reqId):
-        folderName = self.get_foldername_using_reqId(reqId)
-        filename = constants.DOWNLOAD_FOLDER + self.reqIdDict[reqId]
+        folderName = os.path.join(
+            constants.INCOMPLETE_FOLDER, str(self.get_foldername_using_reqId(reqId)))
+        filename = self.reqIdDict[reqId]
         # filename = self.reqIdDict[reqId]
         print(folderName, filename)
-        self.join_chunks(folderName, filename)
+        self.join_chunks(folderName, constants.DOWNLOAD_FOLDER + filename)
         filepath = filename
         self.add_entry(constants.DB_TABLE_FILE, filename.split(".")[0], filepath, os.stat(
-            filepath).st_size, self.checksum_large(filepath), 0, reqId, constants.FS_DOWNLOAD_COMPLETE, None)
+            filepath).st_size, self.checksum_large(filepath), 0, 0, constants.FS_DOWNLOAD_COMPLETE, None)
         # TODO insert into table
         # Use this downloadComplete to point to the fileId
         self.downloadComplete[reqId] = filename
@@ -280,8 +276,11 @@ class fileSystem(object):
         return True
 
     def get_foldername_using_reqId(self, request_id):
-        for x in os.listdir('.'):
-            if os.path.isdir(x) and x.startswith(str(request_id)+"_"):
+        print("Requestid", request_id)
+        for x in os.listdir(constants.INCOMPLETE_FOLDER):
+            print(x, os.path.isdir(constants.INCOMPLETE_FOLDER+x),
+                  x.startswith(str(request_id)+"_"))
+            if os.path.isdir(constants.INCOMPLETE_FOLDER+x) and x.startswith(str(request_id)+"_"):
                 return x
         pass
 
@@ -313,7 +312,7 @@ class fileSystem(object):
             Make content available for download
             Add entry to table with Status as UPLOAD
 
-            Returns 
+            Returns
                 TRUE on success
                 FALSE on failure
         """
@@ -345,12 +344,27 @@ class fileSystem(object):
         return True
 
     def removeShare(self, path):
-        self.remove_entry(constants.DB_TABLE_FILE, constants.FT_PATH, path)
-        return True
+        if (not os.path.exists(path)):
+            return False
+        elif (os.path.isdir(path)):
+            for file in os.listdir(path):
+                file = path+"/"+file
+                if os.path.isfile(file):
+                    print(file)
+                    self.removeShare(file)
+        else:
+            self.remove_entry(constants.DB_TABLE_FILE, constants.FT_PATH, path)
+            return True
+
+    def reqId_to_name(self, reqId):
+        if reqId in self.reqIdDict.keys():
+            return self.reqIdDict[reqId]
+        else:
+            return None
 
     def test_done(self):
         for i in range(math.ceil(422898/constants.CHUNK_SIZE)):
-            chunk = self.getContent(5, i)
+            chunk = self.getContent(2, i)
             mssg = {
                 'Data': chunk,
                 'Chunk number': i,

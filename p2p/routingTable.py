@@ -145,8 +145,8 @@ class routingTable(object):
             time.sleep(self.updateFreq)
             # print('UPDATING')
             self.mutexPP.acquire()
-            sentPingTemp = copy.copy(self.sendPing)
-            recvPongTemp = copy.copy(self.recvPong)
+            sentPingTemp = copy.deepcopy(self.sentPing)
+            recvPongTemp = copy.deepcopy(self.recvPong)
             self.sentPing = []
             self.recvPong = []
             self.mutexPP.release()
