@@ -26,6 +26,7 @@ def send(ip: str, **data):
 
         data = json.dumps(data)
         data = data.encode(ENCODING)
+        print(len(data))
         data = len(data).to_bytes(4, 'big') + data
         socket = _get_socket(ip)
 
@@ -63,7 +64,7 @@ def receive(socket: socket):
     while True:
         temp = b''
         temp = socket.recv(MSG_SIZE)
-        
+
         if temp != b'':
             if isContent is None:
                 isContent = bool(int.from_bytes(temp[:1], 'big'))
@@ -94,7 +95,7 @@ def receive(socket: socket):
                         print(f"DEBUG: {err}")
                         print("ERROR: invalid dict received!")
                         None
-            
+
             if done and isContent:
                 if contLength is None and len(temp) >= 4:
                     contLength = int.from_bytes(temp[:4], 'big')

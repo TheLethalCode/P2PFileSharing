@@ -105,7 +105,7 @@ class Node(object):
     # Handles the different type of incoming message
     def msgHandler(self, clientsock):
         msg = network.receive(clientsock)
-        
+
         if msg is None or (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
             return
 
@@ -326,6 +326,8 @@ class Node(object):
         self.fileSys.removeShare(path)
 
 # Display help for the commands
+
+
 def displayHelp():
     print("{}: display all options".format(HELP))
     print("{} <query>: intiate a search across the peers".format(SEARCH_QUERY))
@@ -337,6 +339,8 @@ def displayHelp():
     print("{} <path>: remove the shared content from the network".format(UNSHARE))
 
 # Parse the input commmandss
+
+
 def parseCmds(cmd, peer):
     if len(cmd) < 1:
         return
@@ -358,11 +362,11 @@ def parseCmds(cmd, peer):
         peer.checkProgress(int(cmd[1]))
 
     elif cmd[0].lower() == ABORT and len(cmd) == 2:
-        peer.abort()
+        peer.abort(int(cmd[1]))
 
     elif cmd[0].lower() == SHARE and len(cmd) == 2:
         peer.shareContent(cmd[1])
-    
+
     elif cmd[0].lower() == UNSHARE and len(cmd) == 2:
         peer.removeShare(cmd[1])
 
@@ -373,7 +377,7 @@ def parseCmds(cmd, peer):
 
 if __name__ == '__main__':
 
-    peer = Node(True)
+    peer = Node()
     peer.load_state()
 
     bootstrapIP = None

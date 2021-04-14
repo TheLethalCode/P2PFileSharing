@@ -1,18 +1,25 @@
-import constants
-import sys
-import os
-import base64
-from binaryornot.check import is_binary
-import hashlib
-import math
-import sqlite3
 import shutil
+import sqlite3
+import math
+import hashlib
+from binaryornot.check import is_binary
+import base64
+import os
+import re
+import sys
+# import constants
+import constants as constants
+import threading
+
 # TODO: Entry for DOWNLOADS
+# TODO: abort on some request id
 # TODO: Set ParentID and RequestId properly
 # TODO: modify queries to check status
 # TODO: add function to update status using fileID
 # TODO: return correctly the response in search()
 # TODO: request removal of replication when removing content
+# TODO: saving states of dicts
+# TODO: test multiple chunks of files
 
 
 class fileSystem(object):
@@ -27,18 +34,18 @@ class fileSystem(object):
         super().__init__()
         self.reqIdDict = {}
         self.downloadComplete = {}
+        self.fileIdcache = {}
+        self.databaseLock = threading.RLock()
         self.fsLocation = constants.FILESYS_PATH
+        if not os.path.exists(constants.DOWNLOAD_FOLDER):
+            os.makedirs(constants.DOWNLOAD_FOLDER)
+        if not os.path.exists(constants.INCOMPLETE_FOLDER):
+            os.makedirs(constants.INCOMPLETE_FOLDER)
         try:
-            # self.fs_db = mysql.connector.connect(
-            #     host=constants.DB_HOST,
-            #     user=constants.DB_USERNAME,
-            #     password=constants.DB_PASSWORD,
-            #     database=constants.DB_NAME
-            # )
-            self.fs_db = sqlite3.connect(constants.DB_NAME, check_same_thread=False)
+            self.fs_db = sqlite3.connect(
+                constants.DB_NAME, check_same_thread=False)
             self.fs_db_cursor = self.fs_db.cursor()
             print("DATABASE EXISTS")
-        # except:
             print("CREATING TABLE")
             query = "CREATE TABLE IF NOT EXISTS "+constants.DB_TABLE_FILE+" ( "\
                 + constants.FT_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"\
@@ -47,13 +54,14 @@ class fileSystem(object):
                 + constants.FT_SIZE+" INT(255), "\
                 + constants.FT_CHECKSUM + " VARCHAR(255), "\
                 + constants.FT_PARENTID + " VARCHAR(255), "\
-                + constants.FT_RANDOMID + " INT(255), "\
+                + constants.FT_REQUESTID + " INT(255), "\
                 + constants.FT_STATUS + " VARCHAR(255), "\
                 + constants.FT_REPLICATED_TO + " VARCHAR(255)"\
                 + ")"
             print(query)
-            self.fs_db_cursor.execute(query)
-            self.fs_db.commit()
+            with self.databaseLock:
+                self.fs_db_cursor.execute(query)
+                self.fs_db.commit()
             self.view_table(constants.DB_TABLE_FILE)
         except Exception as ex:
             print(ex)
@@ -62,14 +70,15 @@ class fileSystem(object):
     def add_entry(self, table_name, name, path, size, checksum, parentID, randomID, status, replication):
         query = "INSERT INTO "+table_name+"(" + constants.FT_NAME+"," + constants.FT_PATH+", "\
                 + constants.FT_SIZE+", " + constants.FT_CHECKSUM + ", " + constants.FT_PARENTID + ", " \
-                + constants.FT_RANDOMID + ", " + constants.FT_STATUS + ", " + constants.FT_REPLICATED_TO + ")"\
+                + constants.FT_REQUESTID + ", " + constants.FT_STATUS + ", " + constants.FT_REPLICATED_TO + ")"\
                 + "VALUES ('%s','%s','%d','%s','%s','%s','%s','%s')" % (name,
                                                                         path, size, checksum, parentID, randomID, status, replication)
 
         print(query)
         try:
-            self.fs_db_cursor.execute(query)
-            self.fs_db.commit()
+            with self.databaseLock:
+                self.fs_db_cursor.execute(query)
+                self.fs_db.commit()
             print("Commit Successful")
             print(self.fs_db_cursor.rowcount, "record inserted")
         except Exception as Ex:
@@ -88,8 +97,9 @@ class fileSystem(object):
         print(query)
 
         try:
-            self.fs_db_cursor.execute(query)
-            result = self.fs_db_cursor.fetchall()
+            with self.databaseLock:
+                self.fs_db_cursor.execute(query)
+                result = self.fs_db_cursor.fetchall()
             for r in result:
                 print(r)
         except Exception as Ex:
@@ -98,20 +108,23 @@ class fileSystem(object):
             self.fs_db.rollback()
 
     def search(self, word):
-        query = 'SELECT %s,%s,%s,%s FROM %s WHERE %s LIKE ' % (
+        query = 'SELECT %s,%s,%s,%s FROM %s WHERE (%s LIKE ' % (
             constants.FT_ID, constants.FT_NAME, constants.FT_SIZE, constants.FT_CHECKSUM, constants.DB_TABLE_FILE, constants.FT_NAME)
         query += "'%"+word+"%' "
-        query += " OR "+constants.FT_PATH+" LIKE '%"+word+"%'"
+        query += " OR "+constants.FT_PATH+" LIKE '%"+word+"%')"
+        # query += " AND ("+constants.FT_STATUS+" = "+constants.FS_UPLOADED
+        # query += " OR "+constants.FT_STATUS+" = "+constants.FS_DOWNLOAD_COMPLETE+")"
         # print(query)
         response = []
         try:
-            self.fs_db_cursor.execute(query)
-            result = self.fs_db_cursor.fetchall()
+            with self.databaseLock:
+                self.fs_db_cursor.execute(query)
+                result = self.fs_db_cursor.fetchall()
             for r in result:
                 response.append({
                     constants.FILE_ID: r[0],
                     constants.FT_NAME: r[1],
-                    constants.NUM_CHUNKS: math.ceil(r[2]/constants.CHUNK_SIZE),
+                    constants.NUM_CHUNKS: int(math.ceil(r[2]/constants.CHUNK_SIZE)),
                     constants.FT_CHECKSUM: r[3]
                 })
                 # print(r)
@@ -133,8 +146,9 @@ class fileSystem(object):
                 Chunk, if accessible
                 False, if File DNE or File is not Binary
         """
-
-        fileDetails = self.get_fileDetails_from_fileID(fileId)
+        if fileId not in self.fileIdcache.keys():
+            self.fileIdcache[fileId] = self.get_fileDetails_from_fileID(fileId)
+        fileDetails = self.fileIdcache[fileId]
         file_path = fileDetails[constants.FT_PATH]
         if is_binary(file_path) == False:
             return False
@@ -161,7 +175,7 @@ class fileSystem(object):
             constants.FT_SIZE: a[3],
             constants.FT_CHECKSUM: a[4],
             constants.FT_PARENTID: a[5],
-            constants.FT_RANDOMID: a[6],
+            constants.FT_REQUESTID: a[6],
             constants.FT_STATUS: a[7],
             constants.FT_REPLICATED_TO: a[8]
         }
@@ -170,6 +184,12 @@ class fileSystem(object):
     def get_fileDetails_from_fileID(self, fileId):
         query = "SELECT * from "+constants.DB_TABLE_FILE + \
             " where "+constants.FT_ID+" = "+str(fileId)
+        result = self.execute_query(query, True)[0]
+        return self.get_list_item_to_fileSys_item(result)
+
+    def get_fileDetails_from_reqID(self, reqId):
+        query = "SELECT * from "+constants.DB_TABLE_FILE + \
+            " where "+constants.FT_REQUESTID+" = "+str(reqId)
         result = self.execute_query(query, True)[0]
         return self.get_list_item_to_fileSys_item(result)
 
@@ -184,8 +204,9 @@ class fileSystem(object):
     def execute_query(self, query, response=False):
         if response == True:
             try:
-                self.fs_db_cursor.execute(query)
-                result = self.fs_db_cursor.fetchall()
+                with self.databaseLock:
+                    self.fs_db_cursor.execute(query)
+                    result = self.fs_db_cursor.fetchall()
                 return result
             except Exception as Ex:
                 # TODO ADD SOME LOGGING MECHANISM
@@ -193,8 +214,9 @@ class fileSystem(object):
                 self.fs_db.rollback()
         else:
             try:
-                self.fs_db_cursor.execute(query)
-                self.fs_db.commit()
+                with self.databaseLock:
+                    self.fs_db_cursor.execute(query)
+                    self.fs_db.commit()
                 print("Commit Successful")
             except Exception as Ex:
                 # TODO ADD SOME LOGGING MECHANISM
@@ -242,11 +264,17 @@ class fileSystem(object):
 
     def done(self, reqId):
         folderName = self.get_foldername_using_reqId(reqId)
-        filename = self.reqIdDict[reqId]
-        self.join_chunks(folderName, "outtest"+filename)
+        filename = constants.DOWNLOAD_FOLDER + self.reqIdDict[reqId]
+        # filename = self.reqIdDict[reqId]
+        print(folderName, filename)
+        self.join_chunks(folderName, filename)
+        filepath = filename
+        self.add_entry(constants.DB_TABLE_FILE, filename.split(".")[0], filepath, os.stat(
+            filepath).st_size, self.checksum_large(filepath), 0, reqId, constants.FS_DOWNLOAD_COMPLETE, None)
         # TODO insert into table
         # Use this downloadComplete to point to the fileId
         self.downloadComplete[reqId] = filename
+        print(type(self.reqIdDict))
         self.reqIdDict.pop(reqId)
         shutil.rmtree(folderName)
         return True
@@ -258,13 +286,21 @@ class fileSystem(object):
         pass
 
     def join_chunks(self, fromdir, toFile):
-        with open(toFile, 'wb') as output:
+        with open(toFile, 'wb+') as output:
             parts = os.listdir(fromdir)
-            parts.sort()
+            parts.sort(key=lambda f: int(re.sub('\D', '', f)))
             for filename in parts:
                 filepath = os.path.join(fromdir, filename)
                 with open(filepath, 'rb') as input:
-                    output.write(input.read(constants.CHUNK_SIZE))
+                    output.write(input.read())
+
+    def update_status_using_reqId(self, table_name, reqId, newStatus):
+        if reqId > 0:
+            query = "UPDATE "+table_name+"SET "+constants.FT_STATUS+" = " + \
+                newStatus+" WHERE "+constants.FT_REQUESTID+"="+str(reqId)
+            print(query)
+            self.execute_query(query)
+        pass
 
     def isFinished(self, reqId):
         if reqId not in self.downloadComplete.keys():
@@ -281,8 +317,14 @@ class fileSystem(object):
                 TRUE on success
                 FALSE on failure
         """
-        if (not os.path.exists(path)) or (not os.path.isfile(path)) or (not is_binary(path)):
+        if (not os.path.exists(path)) or (os.path.isfile(path) and not is_binary(path)):
             return False
+        elif (os.path.isdir(path)):
+            for file in os.listdir(path):
+                file = path+"/"+file
+                if os.path.isfile(file):
+                    print(file)
+                    self.add(file)
         else:
             filename = os.path.splitext(path)[0].split("/")[-1]
             file_stat = os.stat(path)
@@ -307,8 +349,8 @@ class fileSystem(object):
         return True
 
     def test_done(self):
-        for i in range(math.ceil(16385/constants.CHUNK_SIZE)):
-            chunk = self.getContent(1, i)
+        for i in range(math.ceil(422898/constants.CHUNK_SIZE)):
+            chunk = self.getContent(5, i)
             mssg = {
                 'Data': chunk,
                 'Chunk number': i,

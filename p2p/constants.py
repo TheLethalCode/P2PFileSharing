@@ -9,10 +9,10 @@ LOGGER.info("Logger Initialized!")
 
 #################### Network Constants ##########################################
 
-APP_PORT = 4000             # Default Port for creating socket connection.
+APP_PORT = 4001             # Default Port for creating socket connection.
 # ENCODING = 'utf-16'          # Default encoding.
 ENCODING = 'utf-8'
-MY_IP = '192.168.191.232'         # My IP address in the network
+MY_IP = '192.168.191.4'         # My IP address in the network
 SOCKET_TIMEOUT = 10.0       # Time out for receiving message
 MSG_SIZE = 4096             # Amount to receive in one go
 SOCK_SLEEP = 0.001
@@ -20,7 +20,10 @@ SOCK_SLEEP = 0.001
 #################### FileSystem Constants #######################################
 
 FILESYS_PATH = "fs.pkl"         #
-CHUNK_SIZE = 65536              # Chunk Size (in Bytes) 65536 bytes = 64KB
+CHUNK_SIZE = 4096              # Chunk Size (in Bytes) 65536 bytes = 64KB
+
+DOWNLOAD_FOLDER = "downloads/"
+INCOMPLETE_FOLDER = "incomplete/"
 
 # Statuses
 FS_UPLOADED = "UPL"                     # Uploaded by current node
@@ -32,7 +35,6 @@ FS_DOWNLOAD_PROGRESS = "FDP"            # Download In-Progress
 # Database Details
 DB_HOST = "localhost"                   # The location of the database
 DB_USERNAME = "root"                    # Usernmae for accessing the database
-DB_PASSWORD = "Shivam@3689"                    # Password for accessing the database
 DB_NAME = "fsys"                        # Name of the database
 
 # Table
@@ -42,7 +44,7 @@ FT_PATH = "path"                        #
 FT_SIZE = "size"                        #
 FT_CHECKSUM = "checksum"                #
 FT_PARENTID = "parent_id"               #
-FT_RANDOMID = "random_id"               #
+FT_REQUESTID = "random_id"               #
 FT_STATUS = "status"                    #
 FT_REPLICATED_TO = "replication_node"   #
 FT_ID = "ID"                            #
@@ -131,7 +133,8 @@ ROUTING = 'Routing Table'               # The Routing Table ({IP, GUID})
 SOURCE_IP = 'Source IP'                 # Ip of the query source (String)
 SOURCE_GUID = 'Source GUID'             # GUID of the query source (String)
 SEARCH = 'Search'                       # The query to search (String)
-QUERY_ID = 'Query ID'                   # The unique query id of the query (String)
+# The unique query id of the query (String)
+QUERY_ID = 'Query ID'
 
 # QUERY_RESP MESSAGE = {
 #     TYPE,
@@ -143,8 +146,9 @@ QUERY_ID = 'Query ID'                   # The unique query id of the query (Stri
 #     RESULTS,
 # }
 RESULTS = 'Results'                     # The Results received from the file system
-                                        # ([{FILE_ID, FT_NAME, NUM_CHUNKS, FT_CHECKSUM}, ])
-NUM_CHUNKS = 'Total Chunks'             # The total number of chunks in the file (Int)
+# ([{FILE_ID, FT_NAME, NUM_CHUNKS, FT_CHECKSUM}, ])
+# The total number of chunks in the file (Int)
+NUM_CHUNKS = 'Total Chunks'
 
 # TRANSFER_REQ = {
 #     TYPE,
@@ -184,7 +188,7 @@ RT_ISCENTRE = 'IsCentre'
 
 
 ############################# Node Constants ########################
-LISTEN_QUEUE = 10               # The size of the connections queue
+LISTEN_QUEUE = 25               # The size of the connections queue
 NUM_THREADS = 10                # The number of threads to use for the transfer
 # The amount of time an individual thread waits before retrying when transferring data
 TRANS_WAIT = 10
