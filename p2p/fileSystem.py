@@ -8,7 +8,7 @@ import os
 import re
 import sys
 # import constants
-import p2p.constants as constants
+import constants as constants
 import threading
 
 # TODO: REPLICATION
@@ -120,7 +120,8 @@ class fileSystem(object):
                     constants.FILE_ID: r[0],
                     constants.FT_NAME: r[1],
                     constants.NUM_CHUNKS: int(math.ceil(r[2]/constants.CHUNK_SIZE)),
-                    constants.FT_CHECKSUM: r[3]
+                    constants.FT_CHECKSUM: r[3],
+                    constants.FT_SIZE: r[2]
                 })
         except Exception as Ex:
             print(Ex)
