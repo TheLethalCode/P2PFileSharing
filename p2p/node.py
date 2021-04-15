@@ -12,7 +12,7 @@ from fileSystem import fileSystem
 
 # TODO:- Save state periodically and load
 # TODO:- Error Handling and logging
-
+# TODO:- Catch network timeout error
 
 class Node(object):
 
@@ -259,7 +259,12 @@ class Node(object):
             SEARCH: searchQ,
             QUERY_ID: qId
         }
+
         self.queryCnt += 1
+        with self.repQuerLock:
+            while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
+                self.repQuer.discard(self.repQuerQueue.get())
+            self.repQuer.add(queryMsg[QUERY_ID])
 
         for neighbours in self.routTab.neighbours():
             queryMsg[DEST_IP] = neighbours[0]
@@ -394,14 +399,16 @@ class Node(object):
             print("{}. ReqId - {}, File - {}, Progress - {} / {}".format(
                 ind, reqId, self.fileSys.reqId_to_name(reqId),
                 goingOn[reqId][0] - len(goingOn[reqId][1]),
-                goingOn[reqId][0]))
+                goingOn[reqId][0])
+            )
 
         print("\nPaused\n============")
         for ind, reqId in enumerate(paused):
             print("{}. ReqId - {}, File - {}, Progress - {} / {}".format(
                 ind, reqId, self.fileSys.reqId_to_name(reqId),
-                (paused[reqId][0] - len(paused[reqId][1])),
-                paused[reqId][0]))
+                paused[reqId][0] - len(paused[reqId][1]),
+                paused[reqId][0])
+            )
 
     # Share Files
     def shareContent(self, path):
@@ -416,9 +423,9 @@ class Node(object):
     def listFiles(self):
         for entry in self.fileSys.view_table(DB_TABLE_FILE):
             print("Id - {}, Name - {}, Path - {}, Size - {:.2f} kB, Type - {}".format(
-                entry[FT_ID], entry[FT_NAME], entry[FT_PATH],
-                entry[FT_SIZE] / 1024, entry[FT_STATUS]
-            )
+                    entry[FT_ID], entry[FT_NAME], entry[FT_PATH],
+                    entry[FT_SIZE] / 1024, entry[FT_STATUS]
+                )
             )
 
 
