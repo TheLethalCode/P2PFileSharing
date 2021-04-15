@@ -7,6 +7,7 @@ import base64
 import os
 import re
 import sys
+import logging
 import constants
 # import p2p.constants as constants
 import threading
@@ -19,6 +20,15 @@ import threading
 # TODO: clean code
 # TODO: return None at proper places instead of false
 
+logger = logging.getLogger('fileSystem')
+logger.setLevel(logging.INFO)
+
+fh = logging.FileHandler(os.path.join(constants.LOG_PATH, constants.LOG_FILE))
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(threadName)s - %(levelname)s - %(message)s'
+)
+fh.setFormatter(formatter)
+logger.addHandler(fh)
 
 class fileSystem(object):
 
