@@ -7,14 +7,15 @@ import base64
 import os
 import re
 import sys
-# import constants
-import constants as constants
+import constants
+# import p2p.constants as constants
 import threading
 
 # TODO: REPLICATION
 # TODO: --> Set ParentID and RequestId properly
 # TODO: --> request removal of replication when removing content
 # TODO: saving states of dicts
+# TODO: load states using
 # TODO: clean code
 # TODO: return None at proper places instead of false
 
@@ -63,6 +64,21 @@ class fileSystem(object):
         except Exception as ex:
             print(ex)
             pass
+
+    def load_state(self):
+        self.load_state_reqIdDict()
+        self.load_state_downloadComplete_dict()
+        self.load_state_fileIdCache()
+        return True
+
+    def load_state_reqIdDict(self):
+        pass
+
+    def load_state_downloadComplete_dict(self):
+        pass
+
+    def load_state_fileIdCache(self):
+        pass
 
     def add_entry(self, table_name, name, path, size, checksum, parentID, randomID, status, replication):
         query = "INSERT INTO "+table_name+"(" + constants.FT_NAME+"," + constants.FT_PATH+", "\
@@ -250,21 +266,22 @@ class fileSystem(object):
                 self.reqIdDict[mssg[constants.REQUEST_ID]
                                ] = filepath.split("/")[-1]
             if os.path.isdir(constants.INCOMPLETE_FOLDER + fileName) == False:
-                os.mkdir(constants.INCOMPLETE_FOLDER+fileName)
-            with open(os.path.join(constants.INCOMPLETE_FOLDER, fileName, str(mssg[constants.CHUNK_NO])), "wb") as f:
+                os.makedirs(constants.INCOMPLETE_FOLDER+fileName)
+            with open(constants.INCOMPLETE_FOLDER+fileName+"/"+str(mssg[constants.CHUNK_NO]), "wb") as f:
                 f.write(chunk)
             print("Writing Chunk Number %s to %s is Successful" % (
                   str(mssg[constants.CHUNK_NO]), fileName))
             return True
 
     def done(self, reqId):
-        folderName = os.path.join(
-            constants.INCOMPLETE_FOLDER, str(self.get_foldername_using_reqId(reqId)))
+        folderName = constants.INCOMPLETE_FOLDER + \
+            str(self.get_foldername_using_reqId(reqId))
+        print("FolderName", folderName)
         filename = self.reqIdDict[reqId]
         # filename = self.reqIdDict[reqId]
         print(folderName, filename)
         self.join_chunks(folderName, constants.DOWNLOAD_FOLDER + filename)
-        filepath = filename
+        filepath = constants.DOWNLOAD_FOLDER + filename
         self.add_entry(constants.DB_TABLE_FILE, filename.split(".")[0], filepath, os.stat(
             filepath).st_size, self.checksum_large(filepath), 0, 0, constants.FS_DOWNLOAD_COMPLETE, None)
         # TODO insert into table
@@ -324,6 +341,7 @@ class fileSystem(object):
                 if os.path.isfile(file):
                     print(file)
                     self.add(file)
+            return True
         else:
             filename = os.path.splitext(path)[0].split("/")[-1]
             file_stat = os.stat(path)
