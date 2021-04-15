@@ -1,11 +1,12 @@
 import logging
-import daiquiri
+import os
 
-## Logger Constants ##
+##################### Logger Constants #####################
 
-daiquiri.setup(level=logging.INFO)
-LOGGER = daiquiri.getLogger(__name__)
-LOGGER.info("Logger Initialized!")
+LOG_PATH = "logs"
+if not os.path.exists(LOG_PATH):
+    os.makedirs(LOG_PATH)
+LOG_FILE = "log.txt"
 
 #################### Network Constants ##########################################
 

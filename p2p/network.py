@@ -40,7 +40,6 @@ def send(ip, **data):
         return True
 
     except (Exception, socket.error):
-        # LOGGER
         return False
 
 
@@ -66,7 +65,6 @@ def receive(recvSocket):
         try:
             temp = recvSocket.recv(MSG_SIZE)
         except socket.error:
-            # LOGGER
             return {}
 
         if temp != b'':
@@ -96,7 +94,6 @@ def receive(recvSocket):
                             return toSend
 
                     except JSONDecodeError:
-                        # LOGGER
                         return {}
 
             if done and isContent:

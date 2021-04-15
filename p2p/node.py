@@ -5,13 +5,29 @@ import copy
 import sys
 import os
 import queue
-import network
-from constants import *
-from routingTable import routingTable
-from fileSystem import fileSystem
+import logging
+# import network
+# from constants import *
+# from routingTable import routingTable
+# from fileSystem import fileSystem
+import p2p.network as network
+from p2p.constants import *
+from p2p.routingTable import routingTable
+from p2p.fileSystem import fileSystem
 
 # TODO:- Save state periodically and load
 # TODO:- Error Handling and logging
+
+# Setting up the log
+logger = logging.getLogger('node')
+logger.setLevel(logging.INFO)
+
+fh = logging.FileHandler(os.path.join(LOG_PATH, LOG_FILE))
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(threadName)s - %(levelname)s - %(message)s'
+)
+fh.setFormatter(formatter)
+logger.addHandler(fh)
 
 class Node(object):
 
@@ -25,7 +41,7 @@ class Node(object):
         if self.isBootstrap:
             self.isJoined = True
             self.GUID = network.generate_guid()
-            # LOGGER
+            logging.info('Starting BootStrap node with GUID: {}'.format(self.GUID))
         else:
             self.isJoined = False
             self.GUID = None
@@ -34,7 +50,7 @@ class Node(object):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind(('', APP_PORT))
         self.sock.listen(LISTEN_QUEUE)
-        # LOGGER
+        logging.info("Binded listening socket to port {}".format(APP_PORT))
 
         # Listen at the APP_PORT
         self.listener = threading.Thread(target=self.listen)
@@ -80,16 +96,14 @@ class Node(object):
             # If error sending JOIN message
             while not network.send(bootstrapIP, **joinMsg):
                 time.sleep(ERROR_RETRY)
-                # LOGGER
-            # LOGGER
+                logging.warn('Failed to send JOIN message to {}'.format(bootstrapIP))
+            logging.info('Sent JOIN message to {}'.format(bootstrapIP))
 
             clientsock, address = self.sock.accept()
 
             if address[0] == bootstrapIP:
-            
                 data = network.receive(clientsock)
                 if data and data[TYPE] == JOIN_ACK:
-            
                     self.GUID = data[DEST_GUID]
                     self.routTab.initialise(
                             rt=data[ROUTING], myGUID=self.GUID,
@@ -98,10 +112,11 @@ class Node(object):
                         )
                     self.isJoined = True
                     print("Joined Network! Your GUID: {}".format(self.GUID))
-                    # LOGGER
+                    logging.info('Joined Network! GUID: {}'.format(self.GUID))
             
     # Join the network and start the listener thread
     def run(self, bootstrapIP=None):
+        logging.info('Starting up peer!')
         if not self.isJoined:
             if bootstrapIP is None:
                 print("Error! Need Bootstrap IP")
@@ -109,36 +124,36 @@ class Node(object):
             self.joinNetwork(bootstrapIP)
 
         self.listener.start()
-        # LOGGER
+        logging.info('Started listener thread')
 
     # Keeps listening and creates separate threads to handle messages
     def listen(self):
         while True:
-            clientsock, _ = self.sock.accept()
+            clientsock, address = self.sock.accept()
             handleMsg = threading.Thread(
                     target=self.msgHandler, 
-                    args=(clientsock,)
+                    args=(clientsock, address)
                 )
             handleMsg.daemon = True
             handleMsg.start()
 
     # Handles the different type of incoming message
-    def msgHandler(self, clientsock):
+    def msgHandler(self, clientsock, address):
 
         msg = network.receive(clientsock)
 
         if not msg:
-            # LOGGER
+            logging.warn('Did not receive message properly from {}'.format(address[0]))
             return
 
-        if (DEST_GUID in msg and msg[DEST_GUID] != self.GUID)
-            # LOGGER
+        if (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
+            logging.warn('Not the intended recipient for message. Destination GUID: {}'.format(msg[DEST_GUID]))
             return
 
         # If received Join message (for bootstrap node)
         if msg[TYPE] == JOIN:
             if self.isBootstrap:
-                # LOGGER
+                logging.info('Received JOIN message from {}'.format(msg[SEND_IP]))
                 joinAck = {
                     TYPE: JOIN_ACK,
                     SEND_IP: MY_IP,
@@ -152,14 +167,13 @@ class Node(object):
                     GUID=joinAck[DEST_GUID], 
                     IPAddr=joinAck[DEST_IP]
                 )
-                # LOGGER
+                logging.info('Assigned GUID {} to {}'.format(joinAck[DEST_GUID], joinAck[DEST_IP]))
             else:
-                pass
-                # LOGGER
+                logging.warn('Join message received! But not bootstrap node')
 
         # Reciving PING message
         if msg[TYPE] == PING:
-            # LOGGER
+            logging.info('Received PING message from {} ({})'.format(msg[SEND_IP], msg[SEND_GUID]))
             pongMsg = {
                 TYPE: PONG,
                 SEND_IP: MY_IP,
@@ -172,12 +186,16 @@ class Node(object):
 
         # Receiving PONG message
         elif msg[TYPE] == PONG:
-            # LOGGER
+            logging.info('Received PONG message from {} ({})'.format(msg[SEND_IP], msg[SEND_GUID]))
             self.routTab.handlePong(msg)
 
         # Receiving QUERY message
         elif msg[TYPE] == QUERY:
-            # LOGGER
+            logging.info(
+                'Received QUERY message with ID {} from {} ({}). Source:- {} ({})'.format(
+                    msg[QUERY_ID], msg[SEND_IP], msg[SEND_GUID], msg[SOURCE_IP], msg[SOURCE_GUID]
+                )
+            )
 
             # Check whether the query is repeated
             with self.repQuerLock:
@@ -185,7 +203,6 @@ class Node(object):
 
             # If not repeated search database and forward query
             if not ok:
-
                 # Search for results in database and send back if any
                 results = self.fileSys.search(msg[SEARCH])
                 if bool(results):
@@ -198,16 +215,18 @@ class Node(object):
                         QUERY_ID: msg[QUERY_ID],
                         RESULTS: results
                     }
-                    if network.send(msg[SOURCE_IP], **reponseMsg):
-                        pass
-                        # LOGGER
+                    network.send(msg[SOURCE_IP], **reponseMsg)
+                    logging.info('Sending {} response(s) to Query {} to {} ({})'.format(
+                            len(results), msg[QUERY_ID], msg[SOURCE_IP], msg[SOURCE_GUID]
+                        )
+                    )
 
                 # Throw away older cached query
                 with self.repQuerLock:
                     while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
                         self.repQuer.discard(self.repQuerQueue.get())
                     self.repQuer.add(msg[QUERY_ID])
-                    # LOGGER
+                logging.info('Adding Query {} to cache'.format(msg[QUERY_ID]))
 
                 msg[SEND_IP] = MY_IP
                 msg[SEND_GUID] = self.GUID
@@ -218,25 +237,32 @@ class Node(object):
                     msg[DEST_GUID] = neighbours[1]
                     if msg[DEST_GUID] != msg[SEND_GUID]:
                         network.send(msg[DEST_IP], **msg)
-                    # LOGGER
-
+                        logging.info('Forwarding query to neighbour {} ({})'.format(
+                                msg[DEST_IP], msg[DEST_GUID]
+                            )
+                        )
             else:
-                # LOGGER
-                pass
+                logging.info('Repeated query {}'.format(msg[QUERY_ID]))
 
         # If received QUERY_RESP message
         elif msg[TYPE] == QUERY_RESP:
-            # LOGGER
+            logging.info(
+                'Received QUERY_RESP with {} result(s) for query {} from {} ({})'.format(
+                    len(msg[RESULTS]), msg[QUERY_ID], msg[SEND_IP], msg[SEND_GUID], 
+                )
+            )
             with self.queryResLock:
                 if msg[QUERY_ID] in self.queryRes:
                     self.queryRes[msg[QUERY_ID]].append(msg)
-                else:
-                    pass
-                    # LOGGER
+                    return
+            logging.warn('Query {} previously discarded'.format(msg[QUERY_ID]))
 
-        # if received TRANSFER_REQ
+        # If received TRANSFER_REQ
         elif msg[TYPE] == TRANSFER_REQ:
-            # LOGGER
+            logging.info('Received TRANSFER_REQ from {} ({}) for File ID {} and Chunk {}'.format(
+                    msg[SEND_IP], msg[SEND_GUID], msg[FILE_ID], msg[CHUNK_NO]
+                )
+            )
             fileTranMsg = {
                 TYPE: TRANSFER_FILE,
                 SEND_IP: MY_IP,
@@ -248,14 +274,16 @@ class Node(object):
                 CONTENT: self.fileSys.getContent(msg[FILE_ID], msg[CHUNK_NO])
             }
             if fileTranMsg[CONTENT] is None:
-                # LOGGER
-                pass
+                logging.warn('Content Unavailable for File ID {}'.format(msg[FILE_ID]))
             else:
                 network.send(msg[SEND_IP], **fileTranMsg)
 
         # If received TRANSFER_FILE message
         elif msg[TYPE] == TRANSFER_FILE:
-            # LOGGER
+            logging.info('Received TRANSFER_FILE from {} ({}) for Request ID {} and Chunk {}'.format(
+                    msg[SEND_IP], msg[SEND_GUID], msg[REQUEST_ID], msg[CHUNK_NO]
+                )
+            )
             with self.chunkLeftLock:
                 # If the request is not yet done and the write to the file system is successful
                 if msg[CHUNK_NO] in self.chunkLeft.get(msg[REQUEST_ID], (0, set()))[1] \
@@ -263,23 +291,17 @@ class Node(object):
 
                     # Remove the chunk no from the required chunk list    
                     self.chunkLeft[msg[REQUEST_ID]][1].remove(msg[CHUNK_NO])
-                    # LOGGER
 
                     # If all the chunks are done, inform filesys of the completion
                     if not bool(self.chunkLeft[msg[REQUEST_ID]][1]):
                         self.fileSys.done(msg[REQUEST_ID])
                         del self.chunkLeft[msg[REQUEST_ID]]
                         del self.chunkLeftTransferReq[msg[REQUEST_ID]]
-                        # LOGGER
-
-                else:
-                    # LOGGER
-                    pass 
 
     # Function for a thread to use for requesting transfer of content
     def requestTransfer(self, tid, numChunks, msg):
         start = tid
-        # LOGGER
+        logging.info('Started thread {} for Request {}'.format(tid, msg[REQUEST_ID]))
 
         # while the reqId is to be downloaded
         try:
@@ -289,7 +311,10 @@ class Node(object):
 
                 msg[CHUNK_NO] = start
                 while ok:
-                    # LOGGER
+                    logging.info('Asking Chunk {} for Request {} from {} ({})'.format(
+                            start, msg[REQUEST_ID], msg[DEST_IP], msg[DEST_GUID]
+                        )
+                    )
                     network.send(msg[DEST_IP], **msg)
                     time.sleep(TRANS_WAIT)
                     with self.chunkLeftLock:
@@ -298,10 +323,9 @@ class Node(object):
                 start += NUM_THREADS
 
         except KeyError:
-            # LOGGER
             pass
 
-        # LOGGER
+        logging.info('Finishing thread {} for Request {}'.format(tid, msg[REQUEST_ID]))
 
     # Sends a Query for the required content to all its neighbours
     def findContent(self, searchQ):
@@ -311,19 +335,18 @@ class Node(object):
             print("Query too small!")
             return
 
-        # LOGGER
         with self.queryResLock:
             if self.queryResQueue.qsize() >= QUERY_QUEUE:
-                print("Throwing away older queries!")
-                
+                print("Throwing away older queries!")                
                 while self.queryResQueue.qsize() >= QUERY_QUEUE:
-                    del self.queryRes[self.queryResQueue.get()]
-                    # LOGGER
+                    which = self.queryResQueue.get()
+                    del self.queryRes[which]
+                    logger.warn('Throwing away query {}'.format(which))
 
             qId = network.generate_uuid_from_guid(self.GUID, self.queryCnt)
             self.queryRes[qId] = []
             self.queryResQueue.put(qId)
-            # LOGGER
+            logger.info('Generated Query {}'.format(qId))
 
         queryMsg = {
             TYPE: QUERY,
@@ -341,14 +364,17 @@ class Node(object):
             while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
                 self.repQuer.discard(self.repQuerQueue.get())
             self.repQuer.add(queryMsg[QUERY_ID])
-            # LOGGER
+            logger.info('Adding query {} to cache'.format(queryMsg[QUERY_ID]))
 
         # Sending Query to neighbours for flooding
         for neighbours in self.routTab.neighbours():
             queryMsg[DEST_IP] = neighbours[0]
             queryMsg[DEST_GUID] = neighbours[1]
             network.send(queryMsg[DEST_IP], **queryMsg)
-            # LOGGER
+            logging.info('Sending query to neighbour {} ({})'.format(
+                                queryMsg[DEST_IP], queryMsg[DEST_GUID]
+                            )
+                        )
 
         print("Query Id: {}".format(qId))
 
@@ -358,7 +384,7 @@ class Node(object):
             if qId not in self.queryRes:
                 print("No such Query ID!")
                 return
-            peers = copy.deepcopy(self.self.queryRes[qId])
+            peers = copy.deepcopy(self.queryRes[qId])
 
         # Display results
         for ind, results in enumerate(peers):
@@ -406,7 +432,7 @@ class Node(object):
             for i in range(numChunks):
                 self.chunkLeft[transferReq[REQUEST_ID]][1].add(i)
             self.chunkLeftTransferReq[transferReq[REQUEST_ID]] = transferReq
-        # LOGGER
+        logging.info('Created request {}'.format(transferReq[REQUEST_ID]))
 
         for ind in range(NUM_THREADS):
             reqCopy = copy.deepcopy(transferReq)
@@ -434,9 +460,10 @@ class Node(object):
             if reqId in self.chunkLeft:
                 self.pausedChunkLeft[reqId] = self.chunkLeft[reqId]
                 del self.chunkLeft[reqId]
-                # LOGGER
             else:
                 print("No ongoing downloads with given Request Id")
+                return
+        logging.info('Paused request {}'.format(reqId))
     
     # Resume paused download
     def resume(self, reqId):
@@ -445,8 +472,8 @@ class Node(object):
                 self.chunkLeft[reqId] = self.pausedChunkLeft[reqId]
                 del self.pausedChunkLeft[reqId]
                 numChunks = self.chunkLeft[reqId][0]
-                # LOGGER
 
+            logging.info('Resumed request {}'.format(reqId))
             for ind in range(NUM_THREADS):
                 reqCopy = copy.deepcopy(self.chunkLeftTransferReq[reqId])
                 thr = threading.Thread(target=self.requestTransfer,
@@ -476,7 +503,7 @@ class Node(object):
                 print("No ongoing downloads with given Request ID")
                 return
         
-        # LOGGER
+        logging.info('Aborted request {}'.format(reqId))
 
     # List all incomplete downloads
     def pending(self):
@@ -597,6 +624,7 @@ def parseCmds(cmd, peer):
 
 if __name__ == '__main__':
 
+    # Starting up the peer
     peer = Node()
     peer.load_state()
 
