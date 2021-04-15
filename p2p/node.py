@@ -96,7 +96,7 @@ class Node(object):
             # If error sending JOIN message
             while not network.send(bootstrapIP, **joinMsg):
                 time.sleep(ERROR_RETRY)
-                logging.warn('Failed to send JOIN message to {}'.format(bootstrapIP))
+                logging.warning('Failed to send JOIN message to {}'.format(bootstrapIP))
             logging.info('Sent JOIN message to {}'.format(bootstrapIP))
 
             clientsock, address = self.sock.accept()
@@ -143,11 +143,12 @@ class Node(object):
         msg = network.receive(clientsock)
 
         if not msg:
-            logging.warn('Did not receive message properly from {}'.format(address[0]))
+            logging.warning('Did not receive message properly from {}'.format(address[0]))
             return
 
         if (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
-            logging.warn('Not the intended recipient for message. Destination GUID: {}'.format(msg[DEST_GUID]))
+            logging.warning('Not the intended recipient for message. Destination GUID: {}'.format(msg[DEST_GUID]))
+            print(msg)
             return
 
         # If received Join message (for bootstrap node)
@@ -169,7 +170,7 @@ class Node(object):
                 )
                 logging.info('Assigned GUID {} to {}'.format(joinAck[DEST_GUID], joinAck[DEST_IP]))
             else:
-                logging.warn('Join message received! But not bootstrap node')
+                logging.warning('Join message received! But not bootstrap node')
 
         # Reciving PING message
         if msg[TYPE] == PING:
@@ -255,7 +256,7 @@ class Node(object):
                 if msg[QUERY_ID] in self.queryRes:
                     self.queryRes[msg[QUERY_ID]].append(msg)
                     return
-            logging.warn('Query {} previously discarded'.format(msg[QUERY_ID]))
+            logging.warning('Query {} previously discarded'.format(msg[QUERY_ID]))
 
         # If received TRANSFER_REQ
         elif msg[TYPE] == TRANSFER_REQ:
@@ -274,7 +275,7 @@ class Node(object):
                 CONTENT: self.fileSys.getContent(msg[FILE_ID], msg[CHUNK_NO])
             }
             if fileTranMsg[CONTENT] is None:
-                logging.warn('Content Unavailable for File ID {}'.format(msg[FILE_ID]))
+                logging.warning('Content Unavailable for File ID {}'.format(msg[FILE_ID]))
             else:
                 network.send(msg[SEND_IP], **fileTranMsg)
 
@@ -341,7 +342,7 @@ class Node(object):
                 while self.queryResQueue.qsize() >= QUERY_QUEUE:
                     which = self.queryResQueue.get()
                     del self.queryRes[which]
-                    logger.warn('Throwing away query {}'.format(which))
+                    logger.warning('Throwing away query {}'.format(which))
 
             qId = network.generate_uuid_from_guid(self.GUID, self.queryCnt)
             self.queryRes[qId] = []
@@ -625,7 +626,7 @@ def parseCmds(cmd, peer):
 if __name__ == '__main__':
 
     # Starting up the peer
-    peer = Node()
+    peer = Node(True)
     peer.load_state()
 
     bootstrapIP = None
