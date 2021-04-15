@@ -1,12 +1,18 @@
 import logging
-import daiquiri
 import os
 
-## Logger Constants ##
+#################### State Constants #################
+STATE_PATH = '.state'
+if not os.path.exists(STATE_PATH):
+    os.makedirs(STATE_PATH)
 
-daiquiri.setup(level=logging.INFO)
-LOGGER = daiquiri.getLogger(__name__)
-LOGGER.info("Logger Initialized!")
+STATE_REP_QUER = 'repQuerQueue.txt'
+STATE_QUERY_RES = 'queryResQueue.txt'
+STATE_QUERY_RESDICT = 'queryRes.json'
+STATE_PENDING = 'pending.json'
+STATE_NET_VARS = 'netvars.json'
+STATE_RT = 'RT.json'
+
 
 ##################### Logger Constants #####################
 
@@ -18,12 +24,12 @@ LOG_FILE = "log.txt"
 #################### Network Constants ##########################################
 
 APP_PORT = 4001             # Default Port for creating socket connection.
-# ENCODING = 'utf-16'          # Default encoding.
-ENCODING = 'utf-8'
-MY_IP = '192.168.191.4'         # My IP address in the network
-SOCKET_TIMEOUT = 10.0       # Time out for receiving message
+ENCODING = 'utf-8'          # Default encoding.
+MY_IP = '192.168.1.12'   # My IP address in the network
+SOCKET_RECV_TIME = 15.0     # Time out for receiving message
+SOCKET_SEND_TIME = 7.0      # Time out for sending messages
 MSG_SIZE = 4096             # Amount to receive in one go
-SOCK_SLEEP = 0.001
+SOCK_SLEEP = 0.001          # Sleep in between consecutive receives
 
 #################### FileSystem Constants #######################################
 
@@ -153,10 +159,9 @@ QUERY_ID = 'Query ID'
 #     QUERY_ID,
 #     RESULTS,
 # }
-RESULTS = 'Results'                     # The Results received from the file system
+RESULTS = 'Results'             # The Results received from the file system
 # ([{FILE_ID, FT_NAME, NUM_CHUNKS, FT_CHECKSUM}, ])
-# The total number of chunks in the file (Int)
-NUM_CHUNKS = 'Total Chunks'
+NUM_CHUNKS = 'Total Chunks'     # The total number of chunks in the file (Int)
 
 # TRANSFER_REQ = {
 #     TYPE,
@@ -203,6 +208,7 @@ DOWN_QUEUE = 10                 # The maximum number of inprogress downloads
 QUERY_QUEUE = 5                 # The maximum number of different queries
 REP_QUERY_CACHE = 1000          # Number of intermediate queries to hold
 QUERY_MIN_SIZE = 3              # Min query size
+ERROR_RETRY = 0.1               # Retry period after error
 
 # Commands
 HELP = 'help'                   # The Help Command

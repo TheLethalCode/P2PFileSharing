@@ -3,8 +3,8 @@ import os
 import sys
 import time
 import threading
-import network
 import copy
+import network
 from constants import *
 
 # TODO:- Change the mutex in a such a way it creates copy of the list and remove the locks
@@ -14,7 +14,6 @@ from constants import *
 class routingTable(object):
     def __init__(self):
         self.myGUID = 0
-        self.filename = 'RT.json'
         self.updateFreq = UPDATE_FREQ
         self.inactiveLimit = INACTIVE_LIMIT
 
@@ -24,17 +23,10 @@ class routingTable(object):
         self.sentPing = []
         self.recvPong = []
 
-        direcs = os.listdir('./')
-        if 'RT.json' in direcs:
-            self.RT = json.load(open(self.filename, 'r'))
-        else:
-            self.RT = dict()
-            with open(self.filename, 'w') as f:
-                json.dump(self.RT, f)
+        self.RT = dict()
 
         self.StayActive = True  # Destructor sets it to false, thread then exits loop and joins
-        self.thread = threading.Thread(
-            target=self.periodicActivityCheck, args=())
+        self.thread = threading.Thread(target=self.periodicActivityCheck, args=())
         self.thread.daemon = True
         self.thread.start()
 
@@ -48,15 +40,25 @@ class routingTable(object):
         self.RT = rt
         self.myGUID = myGUID
         self.addPeer(GUID=Central_GUID, IPAddr=Central_IP, IsCentre=True)
-        self.local_save()
+        self.save_state()
 
     def getTable(self):
         return self.RT
 
-    def local_save(self):
-        # No mutex lock here, assumed to always be called within mutex locking of other functions
-        with open(self.filename, 'w') as f:
-            json.dump(self.RT, f)
+    # Save RT to json
+    def save_state(self):
+        fileName = os.path.join(STATE_PATH, STATE_RT)
+        
+        with open(fileName, 'w') as save:
+            json.dump(self.RT, save)
+
+    # Load RT from json
+    def load_state(self):
+        fileName = os.path.join(STATE_PATH, STATE_RT)
+
+        if os.path.exists(fileName):        # If the file exists, load it
+            with open(fileName) as load:
+                self.RT = json.load(load)
 
     def addPeer(self, GUID, IPAddr='0', Port=APP_PORT, IsCentre=False):
         self.mutex.acquire()
@@ -72,14 +74,14 @@ class routingTable(object):
             self.RT[GUID][RT_ISACTIVE] = True
             self.RT[GUID][RT_INACTIVE] = 0
             self.RT[GUID][RT_ISCENTRE] = IsCentre
-            self.local_save()
+            self.save_state()
             self.mutex.release()
 
     def deletePeer(self, GUID):
         self.mutex.acquire()
         if GUID in self.RT.keys():
             self.RT.pop(GUID)
-        self.local_save()
+        self.save_state()
         self.mutex.release()
 
     def updatePeer(self, GUID, IPAddr, Port=APP_PORT, ActiveBool=True, InactiveTime=0, IsCentre=False):
@@ -92,7 +94,7 @@ class routingTable(object):
             self.RT[GUID][RT_INACTIVE] = InactiveTime
             self.RT[GUID][RT_ISCENTRE] = IsCentre
 
-            self.local_save()
+            self.save_state()
             self.mutex.release()
         else:
             self.mutex.release()
@@ -114,7 +116,7 @@ class routingTable(object):
             return
         self.updatePeer(GUID=pongMsg[SEND_GUID], IPAddr=pongMsg[SEND_IP])
         self.mutexPP.acquire()
-        self.recvPong.append(pingMsg[SEND_GUID])
+        self.recvPong.append(pongMsg[SEND_GUID])
         self.mutexPP.release()
 
     def sendPing(self, destGUID, destIP):
@@ -125,7 +127,7 @@ class routingTable(object):
             DEST_IP: destIP,
             DEST_GUID: destGUID
         }
-        network.send(pingMsg[SEND_IP], **pingMsg)
+        network.send(pingMsg[DEST_IP], **pingMsg)
         self.mutexPP.acquire()
         self.sentPing.append(destGUID)
         self.mutexPP.release()

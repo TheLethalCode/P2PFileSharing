@@ -8,8 +8,8 @@ import os
 import re
 import sys
 import logging
-# import constants
-import p2p.constants as constants
+import constants
+# import p2p.constants as constants
 import threading
 
 # TODO: REPLICATION
