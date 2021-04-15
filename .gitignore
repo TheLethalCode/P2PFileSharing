@@ -130,3 +130,5 @@ dmypy.json
 RT.json
 fsys
 incomplete/
+logs
+logs/

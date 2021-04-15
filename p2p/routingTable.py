@@ -125,7 +125,7 @@ class routingTable(object):
             DEST_IP: destIP,
             DEST_GUID: destGUID
         }
-        network.send(pingMsg[SEND_IP], **pingMsg)
+        network.send(pingMsg[DEST_IP], **pingMsg)
         self.mutexPP.acquire()
         self.sentPing.append(destGUID)
         self.mutexPP.release()
