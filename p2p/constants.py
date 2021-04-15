@@ -1,6 +1,19 @@
 import logging
 import os
 
+#################### State Constants #################
+STATE_PATH = '.state'
+if not os.path.exists(STATE_PATH):
+    os.makedirs(STATE_PATH)
+
+STATE_REP_QUER = 'repQuerQueue.txt'
+STATE_QUERY_RES = 'queryResQueue.txt'
+STATE_QUERY_RESDICT = 'queryRes.json'
+STATE_PENDING = 'pending.json'
+STATE_NET_VARS = 'netvars.json'
+STATE_RT = 'RT.json'
+
+
 ##################### Logger Constants #####################
 
 LOG_PATH = "logs"

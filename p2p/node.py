@@ -6,6 +6,8 @@ import sys
 import os
 import queue
 import logging
+import json
+from collections import deque
 import network
 from constants import *
 from routingTable import routingTable
@@ -34,13 +36,13 @@ class Node(object):
 
         self.routTab = routingTable()
         self.fileSys = fileSystem()
-        self.isBootstrap = isBootstrap
 
         # Handle the case of bootstrapping node
+        self.isBootstrap = isBootstrap
         if self.isBootstrap:
             self.isJoined = True
             self.GUID = network.generate_guid()
-            logger.info('Starting BootStrap node with GUID: {}'.format(self.GUID))
+            logger.info('Initialising BootStrap node with GUID: {}'.format(self.GUID))
         else:
             self.isJoined = False
             self.GUID = None
@@ -75,9 +77,131 @@ class Node(object):
         self.repQuerQueue = queue.Queue()
         self.repQuerLock = threading.RLock()
 
+    # Save network variables
+    def save_netVars(self):
+        fileName = os.path.join(STATE_PATH, STATE_NET_VARS)
+        
+        # Save network vars as dict
+        with open(fileName, 'w') as save:
+            json.dump({
+                'isBootstrap' : self.isBootstrap,
+                'isJoined' : self.isJoined,
+                'GUID' : self.GUID
+            }, save)
+
+    # Save the queryRes Dict
+    def save_queryRes(self):
+        fileName = os.path.join(STATE_PATH, STATE_QUERY_RESDICT)
+
+        # Dump the dict and cnt
+        with open(fileName, 'w') as save:
+            json.dump({
+                'dict' : self.queryRes, 
+                'cnt' : self.queryCnt
+            }, save)
+
+    # Maintain a fixed number of query responses
+    def save_queryResQueue(self, qId):
+        fileName = os.path.join(STATE_PATH, STATE_QUERY_RES)
+        
+        # Maintain the limit
+        with open(fileName, 'r+') as save:
+            buff = deque(save, maxlen=QUERY_QUEUE)
+        buff.append('{}\n'.format(qId))
+        
+        # Write it out
+        with open(fileName, 'w') as save:
+            save.writelines(buff)
+
+    # Save the pending (in progress and paused downloads)
+    def save_pending(self):
+        fileName = os.path.join(STATE_PATH, STATE_PENDING)
+        
+        # Dump all download related stuff
+        with open(fileName, 'w') as save:
+            json.dump({
+                'progress' : self.chunkLeft,
+                'paused' : self.pausedChunkLeft,
+                'transfer req' : self.chunkLeftTransferReq,
+                'cnt' : self.reqCnt
+            }, save)
+
+    # Maintain a fixed number of rep query cache
+    def save_repQuerQueue(self, qId):
+        fileName = os.path.join(STATE_PATH, STATE_REP_QUER)
+        
+        # Maintain the limit
+        with open(fileName, 'r+') as save:
+            buff = deque(save, maxlen=REP_QUERY_CACHE)
+        buff.append('{}\n'.format(qId))
+        
+        # Write it out
+        with open(fileName, 'w') as save:
+            save.writelines(buff)
+
     # Load Saved State
     def load_state(self):
+        self.fileSys.load_state()
+        self.routTab.load_state()
+        
+        # Net vars
+        fileName = os.path.join(STATE_PATH, STATE_NET_VARS)
+        if os.path.exists(fileName):        # If the file exists, load it
+            with open(fileName) as load:
+                loadDict = json.load(load)
+            self.isJoined, self.isBootstrap = loadDict['isJoined'], loadDict['isBootstrap']
+            self.GUID = loadDict['GUID']
+
+        # Query Res Dict
+        fileName = os.path.join(STATE_PATH, STATE_QUERY_RESDICT)
+        if os.path.exists(fileName):        # If the file exists, load it
+            with open(fileName) as load:
+                loadDict = json.load(load)
+            self.queryRes, self.queryCnt = loadDict['dict'], loadDict['cnt']
+
+        # Query Res Queue
+        fileName = os.path.join(STATE_PATH, STATE_QUERY_RES)
+        if os.path.exists(fileName):        # If the file exists, load it
+            with open(fileName) as load:
+                for line in load.readlines():
+                    self.queryResQueue.put(line[:-1])
+
+        # Pending
+        fileName = os.path.join(STATE_PATH, STATE_PENDING)
+        if os.path.exists(fileName):        # If the file exists, load it
+            with open(fileName) as load:
+                loadDict = json.load(load)
+            self.chunkLeft, self.reqCnt = loadDict['progress'], loadDict['cnt']
+            self.chunkLeftTransferReq = loadDict['transfer req']
+            self.pausedChunkLeft = load['paused']
+
+        # Rep Query Queue
+        fileName = os.path.join(STATE_PATH, STATE_REP_QUER)
+        if os.path.exists(fileName):        # If the file exists, load it
+            with open(fileName) as load:
+                for line in load.readlines():
+                    self.repQuerQueue.put(line[:-1])
+                    self.repQuer.add(line[:-1])
+
+
+    # Start threads to resume downloads
+    def start_threads(self):
         pass
+
+    # Join the network and start the listener thread
+    def run(self):
+        logger.info('Starting up peer!')
+        self.load_state()       # Look for saved state
+
+        if not self.isJoined:   # If still not part of network, get bootstrap IP
+            bootstrapIP = input('Bootstrap IP > ')
+            self.joinNetwork(bootstrapIP)
+
+        self.listener.start()   # Start listener thread
+        logger.info('Started listener thread')
+
+        self.start_threads()    # Resume downloads if loaded
+        logger.info('Resuming inprogress downloads')
 
     # Join the network using the bootstrapIP as the common point
     def joinNetwork(self, bootstrapIP):
@@ -112,18 +236,6 @@ class Node(object):
                     self.isJoined = True
                     print("Joined Network! Your GUID: {}".format(self.GUID))
                     logger.info('Joined Network! GUID: {}'.format(self.GUID))
-            
-    # Join the network and start the listener thread
-    def run(self, bootstrapIP=None):
-        logger.info('Starting up peer!')
-        if not self.isJoined:
-            if bootstrapIP is None:
-                print("Error! Need Bootstrap IP")
-                return
-            self.joinNetwork(bootstrapIP)
-
-        self.listener.start()
-        logger.info('Started listener thread')
 
     # Keeps listening and creates separate threads to handle messages
     def listen(self):
@@ -628,13 +740,7 @@ if __name__ == '__main__':
 
     # Starting up the peer
     peer = Node(True)
-    peer.load_state()
-
-    bootstrapIP = None
-    if not peer.isJoined:
-        bootstrapIP = input("Bootstrap IP: ")
-
-    peer.run(bootstrapIP)
+    peer.run()
 
     while True:
         cmd = input("> ").split()
