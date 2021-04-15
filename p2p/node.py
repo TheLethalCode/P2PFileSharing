@@ -6,14 +6,14 @@ import sys
 import os
 import queue
 import logging
-# import network
-# from constants import *
-# from routingTable import routingTable
-# from fileSystem import fileSystem
-import p2p.network as network
-from p2p.constants import *
-from p2p.routingTable import routingTable
-from p2p.fileSystem import fileSystem
+import network
+from constants import *
+from routingTable import routingTable
+from fileSystem import fileSystem
+# import p2p.network as network
+# from p2p.constants import *
+# from p2p.routingTable import routingTable
+# from p2p.fileSystem import fileSystem
 
 # TODO:- Save state periodically and load
 # TODO:- Error Handling and logging
