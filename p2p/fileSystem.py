@@ -92,6 +92,8 @@ class fileSystem(object):
         if os.path.exists(path):
             with open(path) as load:
                 self.reqIdDict = json.load(load)
+        tempDict = {int(k): v for k, v in self.reqIdDict.items()}
+        self.reqIdDict = tempDict
         logger.info("Loaded ReqIdDict from json")
 
     def save_state_reqIdDict(self):
@@ -106,6 +108,8 @@ class fileSystem(object):
         if os.path.exists(path):
             with open(path) as load:
                 self.downloadComplete = json.load(load)
+        tempDict = {int(k): v for k, v in self.downloadComplete.items()}
+        self.downloadComplete = tempDict
         logger.info("Loaded DownloadCompleteDict from json")
 
     def save_state_downloadComplete_dict(self):
@@ -121,6 +125,8 @@ class fileSystem(object):
         if os.path.exists(path):
             with open(path) as load:
                 self.fileIdcache = json.load(load)
+        tempDict = {int(k): v for k, v in self.fileIdcache.items()}
+        self.fileIdcache = tempDict
         logger.info("Loaded FileIdCache from json")
 
     def save_state_fileIdCache(self):
@@ -500,5 +506,5 @@ class fileSystem(object):
             self.writeChunk(mssg)
             time.sleep(2)
         # self.abort_download(124)
-        # print(self.done(124))
+        print(self.done(124))
         pass
