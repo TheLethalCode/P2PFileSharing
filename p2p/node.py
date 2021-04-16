@@ -39,6 +39,7 @@ class Node(object):
             self.isJoined = True
             self.GUID = network.generate_guid()
             logger.info('Initialising BootStrap node with GUID: {}'.format(self.GUID))
+            
         else:
             self.isJoined = False
             self.GUID = None
@@ -186,9 +187,9 @@ class Node(object):
         if os.path.exists(fileName):        # If the file exists, load it
             with open(fileName) as load:
                 loadDict = json.load(load)
-            self.chunkLeft = { key: (loadDict['progress'][key][0], set(loadDict['progress'][key][1])) for key in loadDict['progress'] }
-            self.chunkLeftTransferReq = loadDict['transfer req']
-            self.pausedChunkLeft = { key: (loadDict['paused'][key][0], set(loadDict['paused'][key][1])) for key in loadDict['paused'] }
+            self.chunkLeft = { int(key): (loadDict['progress'][key][0], set(loadDict['progress'][key][1])) for key in loadDict['progress'] }
+            self.chunkLeftTransferReq = { int(key): loadDict['transfer req'][key] for key in loadDict['transfer req'] }
+            self.pausedChunkLeft = { int(key): (loadDict['paused'][key][0], set(loadDict['paused'][key][1])) for key in loadDict['paused'] }
             self.reqCnt = loadDict['cnt']
 
         # Rep Query Queue
@@ -223,6 +224,7 @@ class Node(object):
         if not self.isJoined:   # If still not part of network, get bootstrap IP
             bootstrapIP = input('Bootstrap IP > ')
             self.joinNetwork(bootstrapIP)
+        self.save_netVars()     # Save State
 
         self.listener.start()   # Start listener thread
         logger.info('Started listener thread')
@@ -269,7 +271,6 @@ class Node(object):
                     # State Details
                     print("Joined Network! Your GUID: {}".format(self.GUID))
                     logger.info('Joined Network! GUID: {}'.format(self.GUID))
-                    self.save_netVars()             # Save State
 
     # Keeps listening and creates separate threads to handle messages
     def listen(self):
@@ -292,7 +293,9 @@ class Node(object):
             return
 
         if (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
-            logger.warning('Not the intended recipient for message. Destination GUID: {}'.format(msg[DEST_GUID]))
+            logger.warning('Not the intended recipient for message. From {}. Destination GUID: {}'.format(
+                msg[SEND_IP], msg[DEST_GUID])
+            )
             return
 
         # If received Join message (for bootstrap node)
@@ -638,13 +641,13 @@ class Node(object):
                 del self.pausedChunkLeft[reqId]
                 numChunks = self.chunkLeft[reqId][0]
 
-                self.save_pending()             # Save State
+            self.save_pending()             # Save State
             logger.info('Resumed request {}'.format(reqId))
 
             for ind in range(NUM_THREADS):
                 reqCopy = copy.deepcopy(self.chunkLeftTransferReq[reqId])
                 thr = threading.Thread(target=self.requestTransfer,
-                                       args=(ind, numChunks, reqCopy))
+                                    args=(ind, numChunks, reqCopy))
                 thr.daemon = True
                 thr.start()
         else:
