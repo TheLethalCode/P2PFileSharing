@@ -2,16 +2,18 @@ import logging
 import os
 
 #################### State Constants #################
-STATE_PATH = '.state'
+STATE_PATH = '.state'                   # Folder path for state details 
 if not os.path.exists(STATE_PATH):
     os.makedirs(STATE_PATH)
 
-STATE_REP_QUER = 'repQuerQueue.txt'
-STATE_QUERY_RES = 'queryResQueue.txt'
-STATE_QUERY_RESDICT = 'queryRes.json'
-STATE_PENDING = 'pending.json'
-STATE_NET_VARS = 'netvars.json'
-STATE_RT = 'RT.json'
+STATE_REP_QUER = 'repQuerQueue.txt'     # Path for saving repeated queries
+STATE_QUERY_RES = 'queryResQueue.txt'   # Path for saving the queue of queries
+STATE_QUERY_RESDICT = 'queryRes.json'   # Path for saving the response to query
+STATE_PENDING = 'pending.json'          # Path for saving download related stuff
+STATE_NET_VARS = 'netvars.json'         # Path for saving state variables
+STATE_RT = 'RT.json'                    # Path for saving Routing Table
+
+STATE_UNSAVED_MAX = 20                  # Maximum number of unsaved chunks
 
 
 ##################### Logger Constants #####################
@@ -25,7 +27,7 @@ LOG_FILE = "log.txt"
 
 APP_PORT = 4001             # Default Port for creating socket connection.
 ENCODING = 'utf-8'          # Default encoding.
-MY_IP = '192.168.1.12'   # My IP address in the network
+MY_IP = '192.168.191.226'   # My IP address in the network
 SOCKET_RECV_TIME = 15.0     # Time out for receiving message
 SOCKET_SEND_TIME = 7.0      # Time out for sending messages
 MSG_SIZE = 4096             # Amount to receive in one go
@@ -34,7 +36,7 @@ SOCK_SLEEP = 0.001          # Sleep in between consecutive receives
 #################### FileSystem Constants #######################################
 
 FILESYS_PATH = "fs.pkl"         #
-CHUNK_SIZE = 65536              # Chunk Size (in Bytes) 65536 bytes = 64KB
+CHUNK_SIZE = 524288             # Chunk Size (in Bytes) 65536 bytes = 64KB
 
 DOWNLOAD_FOLDER = "downloads/"
 INCOMPLETE_FOLDER = "incomplete/"
@@ -202,10 +204,10 @@ RT_ISCENTRE = 'IsCentre'
 
 ############################# Node Constants ########################
 LISTEN_QUEUE = 25               # The size of the connections queue
-NUM_THREADS = 10                # The number of threads to use for the transfer
-TRANS_WAIT = 7                  # The time a thread waits before retrying during transfer
-DOWN_QUEUE = 10                 # The maximum number of inprogress downloads
-QUERY_QUEUE = 5                 # The maximum number of different queries
+NUM_THREADS = 6                # The number of threads to use for the transfer
+TRANS_WAIT = 4                 # The time a thread waits before retrying during transfer
+DOWN_QUEUE = 6                 # The maximum number of inprogress downloads
+QUERY_QUEUE = 8                 # The maximum number of different queries
 REP_QUERY_CACHE = 1000          # Number of intermediate queries to hold
 QUERY_MIN_SIZE = 3              # Min query size
 ERROR_RETRY = 0.1               # Retry period after error

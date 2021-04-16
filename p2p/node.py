@@ -17,8 +17,6 @@ from fileSystem import fileSystem
 # from p2p.routingTable import routingTable
 # from p2p.fileSystem import fileSystem
 
-# TODO:- Save state periodically and load
-
 # Setting up the log
 logger = logging.getLogger('node')
 logger.setLevel(logging.INFO)
@@ -34,7 +32,7 @@ class Node(object):
 
     def __init__(self, isBootstrap=False):
 
-        self.routTab = routingTable()
+        self.routTab = routingTable(isBootstrap)
         self.fileSys = fileSystem()
 
         # Handle the case of bootstrapping node
@@ -68,9 +66,8 @@ class Node(object):
         self.chunkLeftLock = threading.RLock()
         self.chunkLeftTransferReq = {}
         self.reqCnt = 0
-
-        # Paused downloads chunks
-        self.pausedChunkLeft = {}
+        self.pausedChunkLeft = {}   # Paused downloads chunks
+        self.unSavedPendingCnt = 0
 
         # Repeated queries
         self.repQuer = set()
@@ -114,17 +111,26 @@ class Node(object):
             save.writelines(buff)
 
     # Save the pending (in progress and paused downloads)
-    def save_pending(self):
+    def save_pending(self, force = True):
         fileName = os.path.join(STATE_PATH, STATE_PENDING)
         
-        # Dump all download related stuff
-        with open(fileName, 'w') as save:
-            json.dump({
-                'progress' : self.chunkLeft,
-                'paused' : self.pausedChunkLeft,
-                'transfer req' : self.chunkLeftTransferReq,
-                'cnt' : self.reqCnt
-            }, save)
+        if force or self.unSavedPendingCnt >= STATE_UNSAVED_MAX:
+            toSave = True
+            self.unSavedPendingCnt = 0
+        else:
+            toSave = False
+            self.unSavedPendingCnt += 1
+
+        if toSave:
+            # Dump all download related stuff
+            with open(fileName, 'w') as save:
+                json.dump({
+                    'progress' : self.chunkLeft,
+                    'paused' : self.pausedChunkLeft,
+                    'transfer req' : self.chunkLeftTransferReq,
+                    'cnt' : self.reqCnt
+                }, save)
+        
 
     # Maintain a fixed number of rep query cache
     def save_repQuerQueue(self, qId):
@@ -157,7 +163,7 @@ class Node(object):
         if os.path.exists(fileName):        # If the file exists, load it
             with open(fileName) as load:
                 loadDict = json.load(load)
-            self.queryRes, self.queryCnt = loadDict['dict'], loadDict['cnt']
+            self.queryRes, self.queryCnt = loadDict['dict'], loadDict['cnt'] + 1
 
         # Query Res Queue
         fileName = os.path.join(STATE_PATH, STATE_QUERY_RES)
@@ -186,7 +192,18 @@ class Node(object):
 
     # Start threads to resume downloads
     def start_threads(self):
-        pass
+        with self.chunkLeftLock:
+            # Go through all loaded reqIds and resume download
+            for reqId in self.chunkLeft:
+                logger.info('Resumed request {}'.format(reqId))
+
+                numChunks = self.chunkLeft[reqId][0]
+                for ind in range(NUM_THREADS):
+                    reqCopy = copy.deepcopy(self.chunkLeftTransferReq[reqId])
+                    thr = threading.Thread(target=self.requestTransfer,
+                                        args=(ind, numChunks, reqCopy))
+                    thr.daemon = True
+                    thr.start()
 
     # Join the network and start the listener thread
     def run(self):
@@ -225,17 +242,24 @@ class Node(object):
             clientsock, address = self.sock.accept()
 
             if address[0] == bootstrapIP:
+                
                 data = network.receive(clientsock)
                 if data and data[TYPE] == JOIN_ACK:
+                    
                     self.GUID = data[DEST_GUID]
+                    self.isJoined = True
+
+                    # Initialise RT
                     self.routTab.initialise(
                             rt=data[ROUTING], myGUID=self.GUID,
                             Central_GUID=data[SEND_GUID], 
                             Central_IP=bootstrapIP
                         )
-                    self.isJoined = True
+
+                    # State Details
                     print("Joined Network! Your GUID: {}".format(self.GUID))
                     logger.info('Joined Network! GUID: {}'.format(self.GUID))
+                    self.save_netVars()             # Save State
 
     # Keeps listening and creates separate threads to handle messages
     def listen(self):
@@ -259,7 +283,6 @@ class Node(object):
 
         if (DEST_GUID in msg and msg[DEST_GUID] != self.GUID):
             logger.warning('Not the intended recipient for message. Destination GUID: {}'.format(msg[DEST_GUID]))
-            print(msg)
             return
 
         # If received Join message (for bootstrap node)
@@ -333,13 +356,6 @@ class Node(object):
                         )
                     )
 
-                # Throw away older cached query
-                with self.repQuerLock:
-                    while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
-                        self.repQuer.discard(self.repQuerQueue.get())
-                    self.repQuer.add(msg[QUERY_ID])
-                logger.info('Adding Query {} to cache'.format(msg[QUERY_ID]))
-
                 msg[SEND_IP] = MY_IP
                 msg[SEND_GUID] = self.GUID
 
@@ -353,6 +369,15 @@ class Node(object):
                                 msg[DEST_IP], msg[DEST_GUID]
                             )
                         )
+
+                # Throw away older cached query and add the query to the cache
+                with self.repQuerLock:
+                    while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
+                        self.repQuer.discard(self.repQuerQueue.get())
+                    self.repQuer.add(msg[QUERY_ID])
+                    self.save_repQuerQueue(msg[QUERY_ID])
+                logger.info('Adding Query {} to cache'.format(msg[QUERY_ID]))
+
             else:
                 logger.info('Repeated query {}'.format(msg[QUERY_ID]))
 
@@ -366,6 +391,7 @@ class Node(object):
             with self.queryResLock:
                 if msg[QUERY_ID] in self.queryRes:
                     self.queryRes[msg[QUERY_ID]].append(msg)
+                    self.save_queryRes()            # Save State
                     return
             logger.warning('Query {} previously discarded'.format(msg[QUERY_ID]))
 
@@ -409,6 +435,10 @@ class Node(object):
                         self.fileSys.done(msg[REQUEST_ID])
                         del self.chunkLeft[msg[REQUEST_ID]]
                         del self.chunkLeftTransferReq[msg[REQUEST_ID]]
+                        self.save_pending()         # Force Save State
+
+                    else:
+                        self.save_pending(False)    # Save State
 
     # Function for a thread to use for requesting transfer of content
     def requestTransfer(self, tid, numChunks, msg):
@@ -458,6 +488,9 @@ class Node(object):
             qId = network.generate_uuid_from_guid(self.GUID, self.queryCnt)
             self.queryRes[qId] = []
             self.queryResQueue.put(qId)
+
+            self.save_queryResQueue(qId)        # Save State
+            self.save_queryRes()                # Save State
             logger.info('Generated Query {}'.format(qId))
 
         queryMsg = {
@@ -471,13 +504,6 @@ class Node(object):
         }
         self.queryCnt += 1
 
-        # Caching for ignoring repeated
-        with self.repQuerLock:
-            while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
-                self.repQuer.discard(self.repQuerQueue.get())
-            self.repQuer.add(queryMsg[QUERY_ID])
-            logger.info('Adding query {} to cache'.format(queryMsg[QUERY_ID]))
-
         # Sending Query to neighbours for flooding
         for neighbours in self.routTab.neighbours():
             queryMsg[DEST_IP] = neighbours[0]
@@ -487,6 +513,15 @@ class Node(object):
                                 queryMsg[DEST_IP], queryMsg[DEST_GUID]
                             )
                         )
+
+        # Caching for ignoring repeated
+        with self.repQuerLock:
+            while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
+                self.repQuer.discard(self.repQuerQueue.get())
+            self.repQuer.add(queryMsg[QUERY_ID])
+
+            self.save_repQuerQueue(queryMsg[QUERY_ID])  # Save State
+            logger.info('Adding query {} to cache'.format(queryMsg[QUERY_ID]))
 
         print("Query Id: {}".format(qId))
 
@@ -542,10 +577,13 @@ class Node(object):
 
         numChunks = result[RESULTS][resNum][NUM_CHUNKS]
         with self.chunkLeftLock:
+
             self.chunkLeft[transferReq[REQUEST_ID]] = (numChunks, set())
             for i in range(numChunks):
                 self.chunkLeft[transferReq[REQUEST_ID]][1].add(i)
             self.chunkLeftTransferReq[transferReq[REQUEST_ID]] = transferReq
+
+            self.save_pending()             # Force Save State
         logger.info('Created request {}'.format(transferReq[REQUEST_ID]))
 
         for ind in range(NUM_THREADS):
@@ -577,6 +615,8 @@ class Node(object):
             else:
                 print("No ongoing downloads with given Request Id")
                 return
+
+            self.save_pending()         # Save State
         logger.info('Paused request {}'.format(reqId))
     
     # Resume paused download
@@ -587,7 +627,9 @@ class Node(object):
                 del self.pausedChunkLeft[reqId]
                 numChunks = self.chunkLeft[reqId][0]
 
+                self.save_pending()             # Save State
             logger.info('Resumed request {}'.format(reqId))
+
             for ind in range(NUM_THREADS):
                 reqCopy = copy.deepcopy(self.chunkLeftTransferReq[reqId])
                 thr = threading.Thread(target=self.requestTransfer,
@@ -617,6 +659,7 @@ class Node(object):
                 print("No ongoing downloads with given Request ID")
                 return
         
+            self.save_pending()         # Save State
         logger.info('Aborted request {}'.format(reqId))
 
     # List all incomplete downloads
