@@ -31,9 +31,10 @@ LOG_FILE = "log.txt"
 
 APP_PORT = 4001             # Default Port for creating socket connection.
 ENCODING = 'utf-8'          # Default encoding.
-MY_IP = '192.168.191.226'   # My IP address in the network
+MY_IP = '192.168.191.232'   # My IP address in the network
 SOCKET_RECV_TIME = 15.0     # Time out for receiving message
 SOCKET_SEND_TIME = 7.0      # Time out for sending messages
+SOCKET_PING_TIME = 3.0      # Time out for ping messages
 MSG_SIZE = 4096             # Amount to receive in one go
 SOCK_SLEEP = 0.001          # Sleep in between consecutive receives
 
