@@ -28,7 +28,11 @@ def send(ip, **data):
         data = data.encode(ENCODING)
         data = len(data).to_bytes(4, 'big') + data
         sendSocket = _get_socket(ip)
-        sendSocket.settimeout(SOCKET_SEND_TIME)
+
+        if data[TYPE] == PING or data[TYPE] == PONG:
+            sendSocket.settimeout(SOCKET_PING_TIME)
+        else:    
+            sendSocket.settimeout(SOCKET_SEND_TIME)
 
         if isTransfer:
             data = int(1).to_bytes(1, 'big') + data

@@ -365,6 +365,15 @@ class Node(object):
                         )
                     )
 
+                # Throw away older cached query and add the query to the cache
+                with self.repQuerLock:
+                    while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
+                        self.repQuer.discard(self.repQuerQueue.get())
+                    self.repQuer.add(msg[QUERY_ID])
+                    self.repQuerQueue.put(msg[QUERY_ID])
+                    self.save_repQuerQueue(msg[QUERY_ID])
+                logger.info('Adding Query {} to cache'.format(msg[QUERY_ID]))
+
                 msg[SEND_IP] = MY_IP
                 msg[SEND_GUID] = self.GUID
 
@@ -378,14 +387,6 @@ class Node(object):
                                 msg[DEST_IP], msg[DEST_GUID]
                             )
                         )
-
-                # Throw away older cached query and add the query to the cache
-                with self.repQuerLock:
-                    while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
-                        self.repQuer.discard(self.repQuerQueue.get())
-                    self.repQuer.add(msg[QUERY_ID])
-                    self.save_repQuerQueue(msg[QUERY_ID])
-                logger.info('Adding Query {} to cache'.format(msg[QUERY_ID]))
 
             else:
                 logger.info('Repeated query {}'.format(msg[QUERY_ID]))
@@ -513,6 +514,15 @@ class Node(object):
         }
         self.queryCnt += 1
 
+        # Caching for ignoring repeated
+        with self.repQuerLock:
+            while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
+                self.repQuer.discard(self.repQuerQueue.get())
+            self.repQuer.add(queryMsg[QUERY_ID])
+            self.repQuerQueue.put(queryMsg[QUERY_ID])
+            self.save_repQuerQueue(queryMsg[QUERY_ID])  # Save State
+        logger.info('Adding query {} to cache'.format(queryMsg[QUERY_ID]))
+
         # Sending Query to neighbours for flooding
         for neighbours in self.routTab.neighbours():
             queryMsg[DEST_IP] = neighbours[0]
@@ -522,15 +532,6 @@ class Node(object):
                                 queryMsg[DEST_IP], queryMsg[DEST_GUID]
                             )
                         )
-
-        # Caching for ignoring repeated
-        with self.repQuerLock:
-            while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
-                self.repQuer.discard(self.repQuerQueue.get())
-            self.repQuer.add(queryMsg[QUERY_ID])
-
-            self.save_repQuerQueue(queryMsg[QUERY_ID])  # Save State
-            logger.info('Adding query {} to cache'.format(queryMsg[QUERY_ID]))
 
         print("Query Id: {}".format(qId))
 
