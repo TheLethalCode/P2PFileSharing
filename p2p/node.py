@@ -157,7 +157,6 @@ class Node(object):
     # Load Saved State
     def load_state(self):
         self.fileSys.load_state()
-        self.routTab.load_state()
         
         # Net vars
         fileName = os.path.join(STATE_PATH, STATE_NET_VARS)
@@ -166,6 +165,7 @@ class Node(object):
                 loadDict = json.load(load)
             self.isJoined, self.isBootstrap = loadDict['isJoined'], loadDict['isBootstrap']
             self.GUID = loadDict['GUID']
+        self.routTab.load_state(self.isBootstrap, self.GUID)    # Loading Routing Table
 
         # Query Res Dict
         fileName = os.path.join(STATE_PATH, STATE_QUERY_RESDICT)

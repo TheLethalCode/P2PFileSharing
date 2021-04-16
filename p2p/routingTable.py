@@ -60,12 +60,15 @@ class routingTable(object):
             json.dump(self.RT, save)
 
     # Load RT from json
-    def load_state(self):
+    def load_state(self, isBootstrap, GUID):
         fileName = os.path.join(STATE_PATH, STATE_RT)
-
-        if os.path.exists(fileName):        # If the file exists, load it
-            with open(fileName) as load:
-                self.RT = json.load(load)
+        with self.mutex:
+            if os.path.exists(fileName):        # If the file exists, load it
+                with open(fileName) as load:
+                    self.RT = json.load(load)
+            self.isBootstrap = isBootstrap
+            self.myGUID = GUID
+        
 
     def addPeer(self, GUID, IPAddr='0', Port=APP_PORT, IsCentre=False):
         self.mutex.acquire()
