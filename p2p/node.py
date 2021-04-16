@@ -32,7 +32,7 @@ class Node(object):
 
     def __init__(self, isBootstrap=False):
 
-        self.routTab = routingTable()
+        self.routTab = routingTable(isBootstrap)
         self.fileSys = fileSystem()
 
         # Handle the case of bootstrapping node
