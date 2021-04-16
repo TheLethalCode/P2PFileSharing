@@ -782,7 +782,7 @@ def parseCmds(cmd, peer):
 if __name__ == '__main__':
 
     # Starting up the peer
-    peer = Node(True)
+    peer = Node()
     peer.run()
 
     while True:
