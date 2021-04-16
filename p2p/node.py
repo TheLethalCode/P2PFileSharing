@@ -189,6 +189,7 @@ class Node(object):
             self.chunkLeft = { key: (loadDict['progress'][0], set(loadDict['progress'][1])) for key in loadDict['progress'] }
             self.chunkLeftTransferReq = loadDict['transfer req']
             self.pausedChunkLeft = { key: (loadDict['paused'][0], set(loadDict['paused'][1])) for key in loadDict['paused'] }
+            self.reqCnt = loadDict['cnt']
 
         # Rep Query Queue
         fileName = os.path.join(STATE_PATH, STATE_REP_QUER)
