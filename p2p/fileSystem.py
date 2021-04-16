@@ -92,9 +92,9 @@ class fileSystem(object):
         if os.path.exists(path):
             with open(path) as load:
                 self.reqIdDict = json.load(load)
+            logger.info("Loaded ReqIdDict from json")
         tempDict = {int(k): v for k, v in self.reqIdDict.items()}
         self.reqIdDict = tempDict
-        logger.info("Loaded ReqIdDict from json")
 
     def save_state_reqIdDict(self):
         path = os.path.join(constants.STATE_PATH, constants.STATE_REQ_ID)
@@ -108,9 +108,9 @@ class fileSystem(object):
         if os.path.exists(path):
             with open(path) as load:
                 self.downloadComplete = json.load(load)
+            logger.info("Loaded DownloadCompleteDict from json")
         tempDict = {int(k): v for k, v in self.downloadComplete.items()}
         self.downloadComplete = tempDict
-        logger.info("Loaded DownloadCompleteDict from json")
 
     def save_state_downloadComplete_dict(self):
         path = os.path.join(constants.STATE_PATH,
@@ -125,9 +125,9 @@ class fileSystem(object):
         if os.path.exists(path):
             with open(path) as load:
                 self.fileIdcache = json.load(load)
+            logger.info("Loaded FileIdCache from json")
         tempDict = {int(k): v for k, v in self.fileIdcache.items()}
         self.fileIdcache = tempDict
-        logger.info("Loaded FileIdCache from json")
 
     def save_state_fileIdCache(self):
         path = os.path.join(constants.STATE_PATH,
@@ -237,7 +237,8 @@ class fileSystem(object):
                 with open(file_path, "rb") as f:
                     f.seek(constants.CHUNK_SIZE * chunkNumber, 0)
                     readChunk = f.read(constants.CHUNK_SIZE)
-                    logger.info("Read Chunk Successfull")
+                    logger.info(
+                        "Read Chunk {} Successfull".format(chunkNumber))
                     return {
                         constants.CNT_CHUNK: readChunk,
                         constants.CNT_FILENAME: fileDetails[constants.FT_NAME],
@@ -335,8 +336,8 @@ class fileSystem(object):
         return cSum
 
     def writeChunk(self, mssg):
-        logger.info("Writing Chunk for Request Id: {}".format(
-            mssg[constants.REQUEST_ID]))
+        logger.info("Writing Chunk {} for Request Id: {}".format(str(mssg[constants.CHUNK_NO]),
+                                                                 mssg[constants.REQUEST_ID]))
         try:
             content = mssg[constants.CONTENT]
             fileName = str(mssg[constants.REQUEST_ID])+"_" + \
@@ -354,7 +355,6 @@ class fileSystem(object):
                 mssg[constants.REQUEST_ID]))
             return False
         else:
-            logger.info("Checksum Match")
             if mssg[constants.REQUEST_ID] not in self.reqIdDict.keys():
                 self.reqIdDict[mssg[constants.REQUEST_ID]
                                ] = filepath.split("/")[-1]
