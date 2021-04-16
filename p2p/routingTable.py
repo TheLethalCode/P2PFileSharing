@@ -7,12 +7,13 @@ import copy
 import network
 from constants import *
 
-# TODO:- Change the mutex in a such a way it creates copy of the list and remove the locks
+
 # TODO:- Manage log(N) entries
 
 
 class routingTable(object):
-    def __init__(self):
+    def __init__(self, isBootstrap):
+        self.isBootstrap = isBootstrap
         self.myGUID = 0
         self.updateFreq = UPDATE_FREQ
         self.inactiveLimit = INACTIVE_LIMIT
@@ -24,6 +25,7 @@ class routingTable(object):
         self.recvPong = []
 
         self.RT = dict()
+        self.load_state()
 
         self.StayActive = True  # Destructor sets it to false, thread then exits loop and joins
         self.thread = threading.Thread(target=self.periodicActivityCheck, args=())
@@ -43,7 +45,10 @@ class routingTable(object):
         self.save_state()
 
     def getTable(self):
-        return self.RT
+        self.mutex.acquire()
+        RT_Temp = copy.deepcopy(self.RT)
+        self.mutex.release()
+        return RT_Temp
 
     # Save RT to json
     def save_state(self):
@@ -136,7 +141,8 @@ class routingTable(object):
         self.mutex.acquire()
         nbr = []
         for guid in self.RT:
-            nbr.append((self.RT[guid][IP_ADDR], guid))
+            if self.RT[guid][RT_ISACTIVE]:
+                nbr.append((self.RT[guid][IP_ADDR], guid))
         self.mutex.release()
         return nbr
 
@@ -152,14 +158,11 @@ class routingTable(object):
             self.sentPing = []
             self.recvPong = []
             self.mutexPP.release()
-            # self.mutexPP.acquire()
             for guid in sentPingTemp:
-                # self.mutex.acquire()
                 if guid in self.RT.keys():
                     obj = self.RT[guid]
                 else:
                     continue
-                # self.mutex.release()
 
                 if guid in recvPongTemp:
                     self.updatePeer(
@@ -171,13 +174,11 @@ class routingTable(object):
                         self.updatePeer(GUID=guid, IPAddr=obj[IP_ADDR], Port=obj[RT_PORT],
                                         ActiveBool=False, InactiveTime=obj[RT_INACTIVE]+1, IsCentre=obj[RT_ISCENTRE])
 
-            # self.sentPing = []
-            # self.recvPong = []
-            # self.mutexPP.release()
 
             nbr = self.neighbours()
             for (guid, IPAddr) in nbr:
                 self.sendPing(guid, IPAddr)
+            print(self.RT)
 
     def findNearestGUID(self, GUID):
         pass
