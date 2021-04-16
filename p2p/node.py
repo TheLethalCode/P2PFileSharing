@@ -351,6 +351,20 @@ class Node(object):
 
             # If not repeated search database and forward query
             if not ok:
+
+                # Throw away older cached query and add the query to the cache
+                with self.repQuerLock:
+                    while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
+                        self.repQuer.discard(self.repQuerQueue.get())
+                    self.repQuer.add(msg[QUERY_ID])
+                    self.repQuerQueue.put(msg[QUERY_ID])
+                    self.save_repQuerQueue(msg[QUERY_ID])
+                logger.info('Adding Query {} to cache'.format(msg[QUERY_ID]))
+
+                sender = msg[SEND_GUID]
+                msg[SEND_IP] = MY_IP
+                msg[SEND_GUID] = self.GUID
+
                 # Search for results in database and send back if any
                 results = self.fileSys.search(msg[SEARCH])
                 if bool(results):
@@ -368,19 +382,6 @@ class Node(object):
                             len(results), msg[QUERY_ID], msg[SOURCE_IP], msg[SOURCE_GUID]
                         )
                     )
-
-                # Throw away older cached query and add the query to the cache
-                with self.repQuerLock:
-                    while self.repQuerQueue.qsize() >= REP_QUERY_CACHE:
-                        self.repQuer.discard(self.repQuerQueue.get())
-                    self.repQuer.add(msg[QUERY_ID])
-                    self.repQuerQueue.put(msg[QUERY_ID])
-                    self.save_repQuerQueue(msg[QUERY_ID])
-                logger.info('Adding Query {} to cache'.format(msg[QUERY_ID]))
-
-                sender = msg[SEND_GUID]
-                msg[SEND_IP] = MY_IP
-                msg[SEND_GUID] = self.GUID
 
                 # Send queries to neighbours in Table
                 for neighbours in self.routTab.neighbours():
