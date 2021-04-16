@@ -3,18 +3,28 @@ import os
 import sys
 import time
 import threading
-import network
 import copy
+import network
 from constants import *
 
-# TODO:- Change the mutex in a such a way it creates copy of the list and remove the locks
+
 # TODO:- Manage log(N) entries
+
+logger = logging.getLogger('routingTable')
+logger.setLevel(logging.INFO)
+
+fh = logging.FileHandler(os.path.join(LOG_PATH, LOG_FILE))
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(threadName)s - %(levelname)s - %(message)s'
+)
+fh.setFormatter(formatter)
+logger.addHandler(fh)
 
 
 class routingTable(object):
-    def __init__(self):
-        self.myGUID = 0
-        self.filename = 'RT.json'
+    def __init__(self, isBootstrap, GUID):
+        self.isBootstrap = isBootstrap
+        self.myGUID = GUID
         self.updateFreq = UPDATE_FREQ
         self.inactiveLimit = INACTIVE_LIMIT
 
@@ -24,19 +34,13 @@ class routingTable(object):
         self.sentPing = []
         self.recvPong = []
 
-        direcs = os.listdir('./')
-        if 'RT.json' in direcs:
-            self.RT = json.load(open(self.filename, 'r'))
-        else:
-            self.RT = dict()
-            with open(self.filename, 'w') as f:
-                json.dump(self.RT, f)
+        self.RT = dict()
 
         self.StayActive = True  # Destructor sets it to false, thread then exits loop and joins
-        self.thread = threading.Thread(
-            target=self.periodicActivityCheck, args=())
+        self.thread = threading.Thread(target=self.periodicActivityCheck, args=())
         self.thread.daemon = True
         self.thread.start()
+        
 
     def __del__(self):
         self.StayActive = False
@@ -48,15 +52,32 @@ class routingTable(object):
         self.RT = rt
         self.myGUID = myGUID
         self.addPeer(GUID=Central_GUID, IPAddr=Central_IP, IsCentre=True)
-        self.local_save()
+        self.save_state()
+        
 
     def getTable(self):
-        return self.RT
+        self.mutex.acquire()
+        RT_Temp = copy.deepcopy(self.RT)
+        self.mutex.release()
+        return RT_Temp
 
-    def local_save(self):
-        # No mutex lock here, assumed to always be called within mutex locking of other functions
-        with open(self.filename, 'w') as f:
-            json.dump(self.RT, f)
+    # Save RT to json
+    def save_state(self):
+        fileName = os.path.join(STATE_PATH, STATE_RT)
+        
+        with open(fileName, 'w') as save:
+            json.dump(self.RT, save)
+
+    # Load RT from json
+    def load_state(self, isBootstrap, GUID):
+        fileName = os.path.join(STATE_PATH, STATE_RT)
+        with self.mutex:
+            if os.path.exists(fileName):        # If the file exists, load it
+                with open(fileName) as load:
+                    self.RT = json.load(load)
+            self.isBootstrap = isBootstrap
+            self.myGUID = GUID
+        
 
     def addPeer(self, GUID, IPAddr='0', Port=APP_PORT, IsCentre=False):
         self.mutex.acquire()
@@ -72,14 +93,14 @@ class routingTable(object):
             self.RT[GUID][RT_ISACTIVE] = True
             self.RT[GUID][RT_INACTIVE] = 0
             self.RT[GUID][RT_ISCENTRE] = IsCentre
-            self.local_save()
+            self.save_state()
             self.mutex.release()
 
     def deletePeer(self, GUID):
         self.mutex.acquire()
         if GUID in self.RT.keys():
             self.RT.pop(GUID)
-        self.local_save()
+        self.save_state()
         self.mutex.release()
 
     def updatePeer(self, GUID, IPAddr, Port=APP_PORT, ActiveBool=True, InactiveTime=0, IsCentre=False):
@@ -92,7 +113,7 @@ class routingTable(object):
             self.RT[GUID][RT_INACTIVE] = InactiveTime
             self.RT[GUID][RT_ISCENTRE] = IsCentre
 
-            self.local_save()
+            self.save_state()
             self.mutex.release()
         else:
             self.mutex.release()
@@ -114,7 +135,7 @@ class routingTable(object):
             return
         self.updatePeer(GUID=pongMsg[SEND_GUID], IPAddr=pongMsg[SEND_IP])
         self.mutexPP.acquire()
-        self.recvPong.append(pingMsg[SEND_GUID])
+        self.recvPong.append(pongMsg[SEND_GUID])
         self.mutexPP.release()
 
     def sendPing(self, destGUID, destIP):
@@ -125,12 +146,21 @@ class routingTable(object):
             DEST_IP: destIP,
             DEST_GUID: destGUID
         }
-        network.send(pingMsg[SEND_IP], **pingMsg)
+        network.send(pingMsg[DEST_IP], **pingMsg)
         self.mutexPP.acquire()
         self.sentPing.append(destGUID)
         self.mutexPP.release()
 
     def neighbours(self):
+        self.mutex.acquire()
+        nbr = []
+        for guid in self.RT:
+            if self.RT[guid][RT_ISACTIVE]:
+                nbr.append((self.RT[guid][IP_ADDR], guid))
+        self.mutex.release()
+        return nbr
+    
+    def neighbours2(self):
         self.mutex.acquire()
         nbr = []
         for guid in self.RT:
@@ -150,31 +180,28 @@ class routingTable(object):
             self.sentPing = []
             self.recvPong = []
             self.mutexPP.release()
-            # self.mutexPP.acquire()
             for guid in sentPingTemp:
-                # self.mutex.acquire()
                 if guid in self.RT.keys():
-                    obj = self.RT[guid]
+                    obj = copy.deepcopy(self.RT[guid])
                 else:
                     continue
-                # self.mutex.release()
 
                 if guid in recvPongTemp:
                     self.updatePeer(
                         GUID=guid, IPAddr=obj[IP_ADDR], Port=obj[RT_PORT], IsCentre=obj[RT_ISCENTRE])
                 else:
                     if obj[RT_INACTIVE]+1 > self.inactiveLimit:
+                        logger.info("Deleting peer: {}".format(obj[IP_ADDR]))
                         self.deletePeer(guid)
                     else:
+                        logger.info("Peer {} is inactive with RT_INACTIVE: {}".format(obj[IP_ADDR], obj[RT_INACTIVE]))
                         self.updatePeer(GUID=guid, IPAddr=obj[IP_ADDR], Port=obj[RT_PORT],
                                         ActiveBool=False, InactiveTime=obj[RT_INACTIVE]+1, IsCentre=obj[RT_ISCENTRE])
 
-            # self.sentPing = []
-            # self.recvPong = []
-            # self.mutexPP.release()
 
-            nbr = self.neighbours()
-            for (guid, IPAddr) in nbr:
+            nbr = self.neighbours2()
+            # print(nbr)
+            for (IPAddr, guid) in nbr:
                 self.sendPing(guid, IPAddr)
 
     def findNearestGUID(self, GUID):

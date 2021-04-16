@@ -1,35 +1,56 @@
 import logging
-import daiquiri
+import os
 
-## Logger Constants ##
+#################### State Constants #################
+STATE_PATH = '.state'                   # Folder path for state details
+if not os.path.exists(STATE_PATH):
+    os.makedirs(STATE_PATH)
 
-daiquiri.setup(level=logging.INFO)
-LOGGER = daiquiri.getLogger(__name__)
-LOGGER.info("Logger Initialized!")
+STATE_REP_QUER = 'repQuerQueue.txt'     # Path for saving repeated queries
+STATE_QUERY_RES = 'queryResQueue.txt'   # Path for saving the queue of queries
+STATE_QUERY_RESDICT = 'queryRes.json'   # Path for saving the response to query
+STATE_PENDING = 'pending.json'          # Path for saving download related stuff
+STATE_NET_VARS = 'netvars.json'         # Path for saving state variables
+STATE_RT = 'RT.json'                    # Path for saving Routing Table
+
+STATE_UNSAVED_MAX = 20                  # Maximum number of unsaved chunks
+
+STATE_REQ_ID = 'req_id_Dict.json'
+STATE_DOWNLOAD_COMPLETE = 'download_complete_dict.json'
+STATE_FILE_ID_CACHE = 'file_id_cache.json'
+
+
+##################### Logger Constants #####################
+
+LOG_PATH = "logs"
+if not os.path.exists(LOG_PATH):
+    os.makedirs(LOG_PATH)
+LOG_FILE = "log.txt"
 
 #################### Network Constants ##########################################
 
 APP_PORT = 4001             # Default Port for creating socket connection.
-# ENCODING = 'utf-16'          # Default encoding.
-ENCODING = 'utf-8'
-MY_IP = '192.168.191.4'         # My IP address in the network
-SOCKET_TIMEOUT = 10.0       # Time out for receiving message
+ENCODING = 'utf-8'          # Default encoding.
+MY_IP = '192.168.191.232'   # My IP address in the network
+SOCKET_RECV_TIME = 15.0     # Time out for receiving message
+SOCKET_SEND_TIME = 7.0      # Time out for sending messages
+SOCKET_PING_TIME = 1.5      # Time out for ping messages
 MSG_SIZE = 4096             # Amount to receive in one go
-SOCK_SLEEP = 0.001
+SOCK_SLEEP = 0.001          # Sleep in between consecutive receives
 
 #################### FileSystem Constants #######################################
 
 FILESYS_PATH = "fs.pkl"         #
-CHUNK_SIZE = 65536              # Chunk Size (in Bytes) 65536 bytes = 64KB
+CHUNK_SIZE = 65536             # Chunk Size (in Bytes) 65536 bytes = 64KB
 
-DOWNLOAD_FOLDER = "downloads/"
-INCOMPLETE_FOLDER = "incomplete/"
+DOWNLOAD_FOLDER = "downloads/"          # Download Folder
+INCOMPLETE_FOLDER = ".incomplete/"      # Incomplete Folder
 
 # Statuses
-FS_UPLOADED = "UPL"                     # Uploaded by current node
+FS_UPLOADED = "UPLOADED"                     # Uploaded by current node
 FS_REPLICATION_COMPLETE = "RPC"         # Replication - Download Complete
 FS_REPLICATION_PROGRESS = "RIP"         # Replication - Download In Progress
-FS_DOWNLOAD_COMPLETE = "FDC"            # Download Complete
+FS_DOWNLOAD_COMPLETE = "DOWNLOAD COMPLETE"            # Download Complete
 FS_DOWNLOAD_PROGRESS = "FDP"            # Download In-Progress
 
 # Database Details
@@ -38,16 +59,16 @@ DB_USERNAME = "root"                    # Usernmae for accessing the database
 DB_NAME = "fsys"                        # Name of the database
 
 # Table
-DB_TABLE_FILE = "FILETABLE"             #
-FT_NAME = "name"                        #
-FT_PATH = "path"                        #
-FT_SIZE = "size"                        #
-FT_CHECKSUM = "checksum"                #
-FT_PARENTID = "parent_id"               #
-FT_REQUESTID = "random_id"               #
-FT_STATUS = "status"                    #
-FT_REPLICATED_TO = "replication_node"   #
-FT_ID = "ID"                            #
+DB_TABLE_FILE = "FILETABLE"             # Table Name
+FT_NAME = "name"                        # Column Name for Name of file
+FT_PATH = "path"                        # Column Name for Path of file
+FT_SIZE = "size"                        # Column Name for Size of file
+FT_CHECKSUM = "checksum"                # Column Name for Checksum of file
+FT_PARENTID = "parent_id"               # Column Name for ParentId of file
+FT_REQUESTID = "random_id"              # Column Name for RequestId of file
+FT_STATUS = "status"                    # Column Name for Status of file
+FT_REPLICATED_TO = "replication_node"   # Column Name for Replicated_to of file
+FT_ID = "ID"                            # Column Name for Id
 
 # Description of CONTENT, the attribute that holds the actual data transferred
 # CONTENT = {
@@ -145,10 +166,9 @@ QUERY_ID = 'Query ID'
 #     QUERY_ID,
 #     RESULTS,
 # }
-RESULTS = 'Results'                     # The Results received from the file system
+RESULTS = 'Results'             # The Results received from the file system
 # ([{FILE_ID, FT_NAME, NUM_CHUNKS, FT_CHECKSUM}, ])
-# The total number of chunks in the file (Int)
-NUM_CHUNKS = 'Total Chunks'
+NUM_CHUNKS = 'Total Chunks'     # The total number of chunks in the file (Int)
 
 # TRANSFER_REQ = {
 #     TYPE,
@@ -160,9 +180,9 @@ NUM_CHUNKS = 'Total Chunks'
 #     FILE_ID,
 #     CHUNK_NO,
 # }
-REQUEST_ID = 'Request ID'
-FILE_ID = 'File ID'
-CHUNK_NO = 'Chunk number'
+REQUEST_ID = 'Request ID'       # Request Id
+FILE_ID = 'File ID'             # File Id of File
+CHUNK_NO = 'Chunk number'       # Chunk Number of File
 
 # TRANSFER_FILE = {
 #     TYPE,
@@ -177,24 +197,26 @@ CHUNK_NO = 'Chunk number'
 CONTENT = 'Data'
 
 ############################# Routing Table Constants ###############
-UPDATE_FREQ = 10
-INACTIVE_LIMIT = 5
+UPDATE_FREQ = 30                # Frequency of Ping/Pong
+INACTIVE_LIMIT = 5              # Number of Ping fails for node to become Inactive
 
-IP_ADDR = 'IPAddr'
-RT_PORT = 'Port'
-RT_ISACTIVE = 'ActiveBool'
-RT_INACTIVE = 'InactiveTime'
-RT_ISCENTRE = 'IsCentre'
+IP_ADDR = 'IPAddr'              # IpAddr
+RT_PORT = 'Port'                # Port Number
+RT_ISACTIVE = 'ActiveBool'      # Testing Is Active
+RT_INACTIVE = 'InactiveTime'    # Testing InActiveTime
+RT_ISCENTRE = 'IsCentre'        # Testing IsCentre
 
 
 ############################# Node Constants ########################
 LISTEN_QUEUE = 25               # The size of the connections queue
-NUM_THREADS = 10                # The number of threads to use for the transfer
-TRANS_WAIT = 7                  # The time a thread waits before retrying during transfer
-DOWN_QUEUE = 10                 # The maximum number of inprogress downloads
-QUERY_QUEUE = 5                 # The maximum number of different queries
+# The number of threads to use for the transfer per downloads
+NUM_THREADS = 8
+TRANS_WAIT = 4                  # The time a thread waits before retrying during transfer
+DOWN_QUEUE = 6                  # The maximum number of inprogress downloads
+QUERY_QUEUE = 8                 # The maximum number of different queries
 REP_QUERY_CACHE = 1000          # Number of intermediate queries to hold
 QUERY_MIN_SIZE = 3              # Min query size
+ERROR_RETRY = 0.1               # Retry period after error
 
 # Commands
 HELP = 'help'                   # The Help Command

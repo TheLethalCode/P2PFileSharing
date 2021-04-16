@@ -6,7 +6,7 @@ import uuid
 from constants import *
 
 
-def send(ip: str, **data):
+def send(ip, **data):
     """Send data to IP (default PORT).
     Args:
         ip (str): IP address of the receipent.
@@ -24,10 +24,15 @@ def send(ip: str, **data):
             content = data[CONTENT][CNT_CHUNK]
             data[CONTENT][CNT_CHUNK] = ''
 
+        sendSocket = _get_socket(ip)
+        if data[TYPE] == PING or data[TYPE] == PONG:
+            sendSocket.settimeout(SOCKET_PING_TIME)
+        else:    
+            sendSocket.settimeout(SOCKET_SEND_TIME)
+
         data = json.dumps(data)
         data = data.encode(ENCODING)
         data = len(data).to_bytes(4, 'big') + data
-        socket = _get_socket(ip)
 
         if isTransfer:
             data = int(1).to_bytes(1, 'big') + data
@@ -35,15 +40,14 @@ def send(ip: str, **data):
         else:
             data = int(0).to_bytes(1, 'big') + data
 
-        socket.sendall(data)
+        sendSocket.sendall(data)
         return True
 
-    except (ValueError, TypeError, Exception) as err:
-        print(f'ERROR: {err}')
+    except (Exception, socket.error):
         return False
 
 
-def receive(socket: socket):
+def receive(recvSocket):
     """Receive data from socket until EOM_CHAR.
 
     Args:
@@ -52,8 +56,8 @@ def receive(socket: socket):
     Returns:
         dict: received data decoded into dictionary
     """
-    # timeout after TIMEOUT seconds if no data received
-    socket.settimeout(SOCKET_TIMEOUT)
+
+    recvSocket.settimeout(SOCKET_RECV_TIME)
     buff = b''
     toSend = {}
     isContent = None
@@ -62,7 +66,10 @@ def receive(socket: socket):
 
     while True:
         temp = b''
-        temp = socket.recv(MSG_SIZE)
+        try:
+            temp = recvSocket.recv(MSG_SIZE)
+        except socket.error:
+            return {}
 
         if temp != b'':
             if isContent is None:
@@ -90,10 +97,8 @@ def receive(socket: socket):
                         else:
                             return toSend
 
-                    except JSONDecodeError as err:
-                        print(f"DEBUG: {err}")
-                        print("ERROR: invalid dict received!")
-                        None
+                    except JSONDecodeError:
+                        return {}
 
             if done and isContent:
                 if contLength is None and len(temp) >= 4:
