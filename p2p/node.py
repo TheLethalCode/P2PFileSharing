@@ -614,6 +614,8 @@ class Node(object):
     def checkProgress(self, reqId):
         with self.chunkLeftLock:
             prog = self.chunkLeft.get(reqId, None)
+            if prog is None:
+                prog = self.pausedChunkLeft.get(reqId, None)
 
         if prog is not None:
             print("Done {} / {}".format(prog[0] - len(prog[1]), prog[0]))
