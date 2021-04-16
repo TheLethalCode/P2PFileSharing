@@ -25,7 +25,6 @@ class routingTable(object):
         self.recvPong = []
 
         self.RT = dict()
-        self.load_state()
 
         self.StayActive = True  # Destructor sets it to false, thread then exits loop and joins
         self.thread = threading.Thread(target=self.periodicActivityCheck, args=())
