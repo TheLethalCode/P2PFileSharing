@@ -10,6 +10,16 @@ from constants import *
 
 # TODO:- Manage log(N) entries
 
+logger = logging.getLogger('routingTable')
+logger.setLevel(logging.INFO)
+
+fh = logging.FileHandler(os.path.join(LOG_PATH, LOG_FILE))
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(threadName)s - %(levelname)s - %(message)s'
+)
+fh.setFormatter(formatter)
+logger.addHandler(fh)
+
 
 class routingTable(object):
     def __init__(self, isBootstrap, GUID):
@@ -181,14 +191,16 @@ class routingTable(object):
                         GUID=guid, IPAddr=obj[IP_ADDR], Port=obj[RT_PORT], IsCentre=obj[RT_ISCENTRE])
                 else:
                     if obj[RT_INACTIVE]+1 > self.inactiveLimit:
+                        logger.info("Deleting peer: {}".format(obj[IP_ADDR]))
                         self.deletePeer(guid)
                     else:
+                        logger.info("Peer {} is inactive with RT_INACTIVE: {}".format(obj[IP_ADDR], obj[RT_INACTIVE]))
                         self.updatePeer(GUID=guid, IPAddr=obj[IP_ADDR], Port=obj[RT_PORT],
                                         ActiveBool=False, InactiveTime=obj[RT_INACTIVE]+1, IsCentre=obj[RT_ISCENTRE])
 
 
             nbr = self.neighbours2()
-            print(nbr)
+            # print(nbr)
             for (IPAddr, guid) in nbr:
                 self.sendPing(guid, IPAddr)
 
