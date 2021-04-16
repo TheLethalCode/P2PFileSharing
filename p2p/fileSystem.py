@@ -297,7 +297,7 @@ class fileSystem(object):
             except Exception as Ex:
                 # TODO ADD SOME LOGGING MECHANISM
                 logger.warning("{}".format(Ex))
-                print(Ex)
+                # print(Ex)
                 self.fs_db.rollback()
         else:
             try:
@@ -305,11 +305,11 @@ class fileSystem(object):
                     logger.info('EXECUTING: {}'.format(query))
                     self.fs_db_cursor.execute(query)
                     self.fs_db.commit()
-                print("Commit Successful")
+                # print("Commit Successful")
             except Exception as Ex:
                 # TODO ADD SOME LOGGING MECHANISM
                 logger.warning("{}".format(Ex))
-                print(Ex)
+                # print(Ex)
                 self.fs_db.rollback()
 
     def checksum(self, chunk):
@@ -431,7 +431,7 @@ class fileSystem(object):
             for file in os.listdir(path):
                 file = path+"/"+file
                 if os.path.isfile(file):
-                    print(file)
+                    # print(file)
                     self.add(file)
             return True
         else:
@@ -473,7 +473,7 @@ class fileSystem(object):
             for file in os.listdir(path):
                 file = path+"/"+file
                 if os.path.isfile(file):
-                    print(file)
+                    # print(file)
                     self.removeShare(file)
             logger.info("Unshare completed for {}".format(path))
             return True
@@ -500,5 +500,5 @@ class fileSystem(object):
             self.writeChunk(mssg)
             time.sleep(2)
         # self.abort_download(124)
-        print(self.done(124))
+        # print(self.done(124))
         pass
