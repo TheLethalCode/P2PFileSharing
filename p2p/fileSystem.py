@@ -9,6 +9,7 @@ import re
 import sys
 import logging
 import constants
+import json
 # import p2p.constants as constants
 import threading
 
@@ -80,19 +81,54 @@ class fileSystem(object):
             pass
 
     def load_state(self):
+        logger.info("Loading States from file")
         self.load_state_reqIdDict()
         self.load_state_downloadComplete_dict()
         self.load_state_fileIdCache()
         return True
 
     def load_state_reqIdDict(self):
-        pass
+        path = os.path.join(constants.STATE_PATH, constants.STATE_REQ_ID)
+        if os.path.exists(path):
+            with open(path) as load:
+                self.reqIdDict = json.load(load)
+        logger.info("Loaded ReqIdDict from json")
+
+    def save_state_reqIdDict(self):
+        path = os.path.join(constants.STATE_PATH, constants.STATE_REQ_ID)
+        with open(path, 'w') as save:
+            json.dump(self.reqIdDict, save)
+        logger.info("Saved ReqIdDict to json")
 
     def load_state_downloadComplete_dict(self):
-        pass
+        path = os.path.join(constants.STATE_PATH,
+                            constants.STATE_DOWNLOAD_COMPLETE)
+        if os.path.exists(path):
+            with open(path) as load:
+                self.downloadComplete = json.load(load)
+        logger.info("Loaded DownloadCompleteDict from json")
+
+    def save_state_downloadComplete_dict(self):
+        path = os.path.join(constants.STATE_PATH,
+                            constants.STATE_DOWNLOAD_COMPLETE)
+        with open(path, 'w') as save:
+            json.dump(self.downloadComplete, save)
+        logger.info("Saved DownloadCompleteDict to json")
 
     def load_state_fileIdCache(self):
-        pass
+        path = os.path.join(constants.STATE_PATH,
+                            constants.STATE_FILE_ID_CACHE)
+        if os.path.exists(path):
+            with open(path) as load:
+                self.fileIdcache = json.load(load)
+        logger.info("Loaded FileIdCache from json")
+
+    def save_state_fileIdCache(self):
+        path = os.path.join(constants.STATE_PATH,
+                            constants.STATE_FILE_ID_CACHE)
+        with open(path, 'w') as save:
+            json.dump(self.fileIdcache, save)
+        logger.info("Saved FileIdCache to json")
 
     def add_entry(self, table_name, name, path, size, checksum, parentID, randomID, status, replication):
         query = "INSERT INTO "+table_name+"(" + constants.FT_NAME+"," + constants.FT_PATH+", "\
@@ -102,20 +138,19 @@ class fileSystem(object):
                                                                         path, size, checksum, parentID, randomID, status, replication)
         logger.info('EXECUTING: {}'.format(query))
 
-        # print(query)
         try:
             with self.databaseLock:
                 self.fs_db_cursor.execute(query)
                 self.fs_db.commit()
             logger.info("Commit Successful")
-            logging.info("{} record inserted".format(
+            logger.info("{} record inserted".format(
                 self.fs_db_cursor.rowcount))
         except Exception as ex:
             # TODO ADD SOME LOGGING MECHANISM
             logger.warning("{}".format(ex))
             # print(Ex)
             self.fs_db.rollback()
-            logging.info("Rolling back Successful")
+            logger.info("Rolling back Successful")
 
     def remove_entry(self, table_name, what, what_value):
         query = "DELETE from "+table_name+" where "+what+" = '"+what_value+"'"
@@ -176,13 +211,21 @@ class fileSystem(object):
                 Chunk, if accessible
                 False, if File DNE or File is not Binary
         """
-        if fileId not in self.fileIdcache.keys():
-            self.fileIdcache[fileId] = self.get_fileDetails_from_fileID(fileId)
-        fileDetails = self.fileIdcache[fileId]
+        try:
+            if fileId not in self.fileIdcache.keys():
+                response = self.get_fileDetails_from_fileID(fileId)
+                if response:
+                    self.fileIdcache[fileId] = response
+                self.save_state_fileIdCache()
+
+            fileDetails = self.fileIdcache[fileId]
+        except KeyError as ker:
+            logger.warning("FileId {} Does not exists".format(fileId))
+            return None
         file_path = fileDetails[constants.FT_PATH]
         if is_binary(file_path) == False:
             logger.warning("File {} is not a binary file".format(file_path))
-            return False
+            return None
         else:
             try:
                 with open(file_path, "rb") as f:
@@ -199,7 +242,7 @@ class fileSystem(object):
             except Exception as Ex:
                 logger.warning("{}".format(Ex))
                 # print(Ex)
-                return False
+                return None
 
     def get_list_item_to_fileSys_item(self, a):
         a_dict = {
@@ -218,14 +261,22 @@ class fileSystem(object):
     def get_fileDetails_from_fileID(self, fileId):
         query = "SELECT * from "+constants.DB_TABLE_FILE + \
             " where "+constants.FT_ID+" = "+str(fileId)
-        result = self.execute_query(query, True)[0]
-        return self.get_list_item_to_fileSys_item(result)
+        result = self.execute_query(query, True)
+        if len(result) > 0:
+            result = result[0]
+            return self.get_list_item_to_fileSys_item(result)
+        else:
+            return {}
 
     def get_fileDetails_from_reqID(self, reqId):
         query = "SELECT * from "+constants.DB_TABLE_FILE + \
             " where "+constants.FT_REQUESTID+" = "+str(reqId)
-        result = self.execute_query(query, True)[0]
-        return self.get_list_item_to_fileSys_item(result)
+        result = self.execute_query(query, True)
+        if len(result) > 0:
+            result = result[0]
+            return self.get_list_item_to_fileSys_item(result)
+        else:
+            return {}
 
     def remove_table(self, table_name):
         query = "DROP TABLE "+table_name
@@ -280,14 +331,18 @@ class fileSystem(object):
     def writeChunk(self, mssg):
         logger.info("Writing Chunk for Request Id: {}".format(
             mssg[constants.REQUEST_ID]))
-        content = mssg[constants.CONTENT]
-        fileName = str(mssg[constants.REQUEST_ID])+"_" + \
-            content[constants.CNT_FILENAME]
-        chunk = content[constants.CNT_CHUNK]
-        filepath = content[constants.CNT_FILEPATH]
-        checkSum_rec = content[constants.CNT_CHECKSUM]
-        print(self.checksum(chunk), checkSum_rec,
-              self.checksum(chunk) == checkSum_rec)
+        try:
+            content = mssg[constants.CONTENT]
+            fileName = str(mssg[constants.REQUEST_ID])+"_" + \
+                content[constants.CNT_FILENAME]
+            chunk = content[constants.CNT_CHUNK]
+            filepath = content[constants.CNT_FILEPATH]
+            checkSum_rec = content[constants.CNT_CHECKSUM]
+        except Exception as Ex:
+            logger.warning("Error in content of message")
+            logger.warning(Ex)
+            return False
+
         if self.checksum(chunk) != checkSum_rec:
             logger.warning("Checksum for Request Id: {} Do not match".format(
                 mssg[constants.REQUEST_ID]))
@@ -299,14 +354,12 @@ class fileSystem(object):
                                ] = filepath.split("/")[-1]
                 logger.info("Added {} to Request_Id_Dictionary".format(
                     mssg[constants.REQUEST_ID]))
+                self.save_state_reqIdDict()
             if not os.path.exists(constants.INCOMPLETE_FOLDER + fileName):
                 os.makedirs(constants.INCOMPLETE_FOLDER+fileName)
                 logger.info("Created Folder {}".format(
                     constants.INCOMPLETE_FOLDER + fileName))
-                # print("Folder ", constants.INCOMPLETE_FOLDER+fileName, "made")
             with open(constants.INCOMPLETE_FOLDER+fileName+"/"+str(mssg[constants.CHUNK_NO]), "wb") as f:
-                # print("Writing to ", constants.INCOMPLETE_FOLDER+fileName +
-                #   "/"+str(mssg[constants.CHUNK_NO]))
                 f.write(chunk)
                 logger.info("Writing Chunk Number {} to {} is Successfull".format(
                     str(mssg[constants.CHUNK_NO]), fileName))
@@ -321,11 +374,15 @@ class fileSystem(object):
         filepath = constants.DOWNLOAD_FOLDER + filename
         self.add_entry(constants.DB_TABLE_FILE, filename.split(".")[0], filepath, os.stat(
             filepath).st_size, self.checksum_large(filepath), 0, 0, constants.FS_DOWNLOAD_COMPLETE, None)
-        logger.info("Entry for download of file {filename} made in database")
+        logger.info(
+            "Entry for download of file {} made in database".format(filename))
         self.downloadComplete[reqId] = filename
+        self.save_state_downloadComplete_dict()
         self.reqIdDict.pop(reqId)
+        self.save_state_reqIdDict()
         shutil.rmtree(folderName)
-        logger.info("Incomplete folder {foldername} deleted successfully")
+        logger.info(
+            "Incomplete folder {} deleted successfully".format(folderName))
         return True
 
     def get_foldername_using_reqId(self, request_id):
@@ -394,12 +451,17 @@ class fileSystem(object):
 
     def abort_download(self, reqId):
         logger.info("Abort Requested for Request Id {}".format(reqId))
-        folderName = self.get_foldername_using_reqId(reqId)
-        self.reqIdDict.pop(reqId)
-        shutil.rmtree(constants.INCOMPLETE_FOLDER+folderName)
-        logger.info(
-            "Removed All Temporary files for Abort Request Id {}".format(reqId))
-        return True
+        try:
+            folderName = self.get_foldername_using_reqId(reqId)
+            self.reqIdDict.pop(reqId)
+            self.save_state_reqIdDict()
+            shutil.rmtree(constants.INCOMPLETE_FOLDER+folderName)
+            logger.info(
+                "Removed All Temporary files for Abort Request Id {}".format(reqId))
+            return True
+        except Exception as Ex:
+            logger.warning(Ex)
+            return False
 
     def removeShare(self, path):
         logger.info("Received Request to unshare {}".format(path))
@@ -429,7 +491,7 @@ class fileSystem(object):
     def test_done(self):
         import time
         for i in range(math.ceil(422898/constants.CHUNK_SIZE)):
-            chunk = self.getContent(3, i)
+            chunk = self.getContent(4, i)
             mssg = {
                 'Data': chunk,
                 'Chunk number': i,
@@ -437,6 +499,6 @@ class fileSystem(object):
             }
             self.writeChunk(mssg)
             time.sleep(2)
-        self.abort_download(124)
-        # print(self.done(124))
+        # self.abort_download(124)
+        print(self.done(124))
         pass

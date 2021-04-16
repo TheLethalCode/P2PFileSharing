@@ -2,7 +2,7 @@ import logging
 import os
 
 #################### State Constants #################
-STATE_PATH = '.state'                   # Folder path for state details 
+STATE_PATH = '.state'                   # Folder path for state details
 if not os.path.exists(STATE_PATH):
     os.makedirs(STATE_PATH)
 
@@ -14,6 +14,10 @@ STATE_NET_VARS = 'netvars.json'         # Path for saving state variables
 STATE_RT = 'RT.json'                    # Path for saving Routing Table
 
 STATE_UNSAVED_MAX = 20                  # Maximum number of unsaved chunks
+
+STATE_REQ_ID = 'req_id_Dict.json'
+STATE_DOWNLOAD_COMPLETE = 'download_complete_dict.json'
+STATE_FILE_ID_CACHE = 'file_id_cache.json'
 
 
 ##################### Logger Constants #####################
@@ -36,7 +40,7 @@ SOCK_SLEEP = 0.001          # Sleep in between consecutive receives
 #################### FileSystem Constants #######################################
 
 FILESYS_PATH = "fs.pkl"         #
-CHUNK_SIZE = 524288             # Chunk Size (in Bytes) 65536 bytes = 64KB
+CHUNK_SIZE = 65536             # Chunk Size (in Bytes) 65536 bytes = 64KB
 
 DOWNLOAD_FOLDER = "downloads/"
 INCOMPLETE_FOLDER = "incomplete/"
@@ -204,7 +208,7 @@ RT_ISCENTRE = 'IsCentre'
 
 ############################# Node Constants ########################
 LISTEN_QUEUE = 25               # The size of the connections queue
-NUM_THREADS = 6                # The number of threads to use for the transfer
+NUM_THREADS = 8                # The number of threads to use for the transfer
 TRANS_WAIT = 4                 # The time a thread waits before retrying during transfer
 DOWN_QUEUE = 6                 # The maximum number of inprogress downloads
 QUERY_QUEUE = 8                 # The maximum number of different queries

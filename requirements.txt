@@ -1,2 +1,1 @@
 binaryornot==0.4.4
-daiquiri==3.0.0
