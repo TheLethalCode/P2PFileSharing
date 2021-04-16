@@ -148,6 +148,14 @@ class routingTable(object):
                 nbr.append((self.RT[guid][IP_ADDR], guid))
         self.mutex.release()
         return nbr
+    
+    def neighbours2(self):
+        self.mutex.acquire()
+        nbr = []
+        for guid in self.RT:
+            nbr.append((self.RT[guid][IP_ADDR], guid))
+        self.mutex.release()
+        return nbr
 
     def periodicActivityCheck(self):
         sentPingTemp = []
@@ -163,7 +171,7 @@ class routingTable(object):
             self.mutexPP.release()
             for guid in sentPingTemp:
                 if guid in self.RT.keys():
-                    obj = self.RT[guid]
+                    obj = copy.deepcopy(self.RT[guid])
                 else:
                     continue
 
@@ -178,8 +186,8 @@ class routingTable(object):
                                         ActiveBool=False, InactiveTime=obj[RT_INACTIVE]+1, IsCentre=obj[RT_ISCENTRE])
 
 
-            nbr = self.neighbours()
-            for (guid, IPAddr) in nbr:
+            nbr = self.neighbours2()
+            for (IPAddr, guid) in nbr:
                 self.sendPing(guid, IPAddr)
             print(self.RT)
 
