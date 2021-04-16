@@ -189,7 +189,6 @@ class routingTable(object):
             nbr = self.neighbours2()
             for (IPAddr, guid) in nbr:
                 self.sendPing(guid, IPAddr)
-            print(self.RT)
 
     def findNearestGUID(self, GUID):
         pass
