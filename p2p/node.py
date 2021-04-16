@@ -131,8 +131,8 @@ class Node(object):
             # Dump all download related stuff
             with open(fileName, 'w') as save:
                 json.dump({
-                    'progress' : self.chunkLeft,
-                    'paused' : self.pausedChunkLeft,
+                    'progress' : { key: (self.chunkLeft[0], list(self.chunkLeft[1])) for key in self.chunkLeft },
+                    'paused' : { key: (self.pausedChunkLeft[0], list(self.pausedChunkLeft[1])) for key in self.pausedChunkLeft },
                     'transfer req' : self.chunkLeftTransferReq,
                     'cnt' : self.reqCnt
                 }, save)
@@ -186,9 +186,9 @@ class Node(object):
         if os.path.exists(fileName):        # If the file exists, load it
             with open(fileName) as load:
                 loadDict = json.load(load)
-            self.chunkLeft, self.reqCnt = loadDict['progress'], loadDict['cnt']
+            self.chunkLeft = { key: (loadDict['progress'][0], set(loadDict['progress'][1])) for key in loadDict['progress'] }
             self.chunkLeftTransferReq = loadDict['transfer req']
-            self.pausedChunkLeft = load['paused']
+            self.pausedChunkLeft = { key: (loadDict['paused'][0], set(loadDict['paused'][1])) for key in loadDict['paused'] }
 
         # Rep Query Queue
         fileName = os.path.join(STATE_PATH, STATE_REP_QUER)
