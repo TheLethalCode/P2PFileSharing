@@ -65,7 +65,7 @@ class Node(object):
         self.queryResQueue = queue.Queue()
         self.queryResLock = threading.RLock()
 
-        # Chunks to be requested | chunkLeft[qId] = (total_chunks, set(chunks left))
+        # Chunks to be requested | chunkLeft[reqId] = (total_chunks, set(chunks left))
         self.chunkLeft = {}
         self.chunkLeftLock = threading.RLock()
         self.chunkLeftTransferReq = {}
@@ -378,6 +378,7 @@ class Node(object):
                     self.save_repQuerQueue(msg[QUERY_ID])
                 logger.info('Adding Query {} to cache'.format(msg[QUERY_ID]))
 
+                sender = msg[SEND_GUID]
                 msg[SEND_IP] = MY_IP
                 msg[SEND_GUID] = self.GUID
 
@@ -385,7 +386,7 @@ class Node(object):
                 for neighbours in self.routTab.neighbours():
                     msg[DEST_IP] = neighbours[0]
                     msg[DEST_GUID] = neighbours[1]
-                    if msg[DEST_GUID] != msg[SEND_GUID]:
+                    if msg[DEST_GUID] != sender:
                         network.send(msg[DEST_IP], **msg)
                         logger.info('Forwarding query to neighbour {} ({})'.format(
                                 msg[DEST_IP], msg[DEST_GUID]
