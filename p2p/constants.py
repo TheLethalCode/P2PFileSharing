@@ -2,7 +2,7 @@ import logging
 import os
 
 #################### State Constants #################
-STATE_PATH = '.state'                   # Folder path for state details 
+STATE_PATH = '.state'                   # Folder path for state details
 if not os.path.exists(STATE_PATH):
     os.makedirs(STATE_PATH)
 
@@ -14,6 +14,10 @@ STATE_NET_VARS = 'netvars.json'         # Path for saving state variables
 STATE_RT = 'RT.json'                    # Path for saving Routing Table
 
 STATE_UNSAVED_MAX = 20                  # Maximum number of unsaved chunks
+
+STATE_REQ_ID = 'req_id_Dict.json'
+STATE_DOWNLOAD_COMPLETE = 'download_complete_dict.json'
+STATE_FILE_ID_CACHE = 'file_id_cache.json'
 
 
 ##################### Logger Constants #####################
