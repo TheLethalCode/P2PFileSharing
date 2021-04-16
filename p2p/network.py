@@ -24,6 +24,7 @@ def send(ip, **data):
             content = data[CONTENT][CNT_CHUNK]
             data[CONTENT][CNT_CHUNK] = ''
 
+        sendSocket = _get_socket(ip)
         if data[TYPE] == PING or data[TYPE] == PONG:
             sendSocket.settimeout(SOCKET_PING_TIME)
         else:    
@@ -32,7 +33,6 @@ def send(ip, **data):
         data = json.dumps(data)
         data = data.encode(ENCODING)
         data = len(data).to_bytes(4, 'big') + data
-        sendSocket = _get_socket(ip)
 
         if isTransfer:
             data = int(1).to_bytes(1, 'big') + data
