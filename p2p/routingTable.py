@@ -12,9 +12,9 @@ from constants import *
 
 
 class routingTable(object):
-    def __init__(self, isBootstrap):
+    def __init__(self, isBootstrap, GUID):
         self.isBootstrap = isBootstrap
-        self.myGUID = 0
+        self.myGUID = GUID
         self.updateFreq = UPDATE_FREQ
         self.inactiveLimit = INACTIVE_LIMIT
 
@@ -31,6 +31,7 @@ class routingTable(object):
         self.thread = threading.Thread(target=self.periodicActivityCheck, args=())
         self.thread.daemon = True
         self.thread.start()
+        
 
     def __del__(self):
         self.StayActive = False
@@ -43,6 +44,7 @@ class routingTable(object):
         self.myGUID = myGUID
         self.addPeer(GUID=Central_GUID, IPAddr=Central_IP, IsCentre=True)
         self.save_state()
+        
 
     def getTable(self):
         self.mutex.acquire()
@@ -113,7 +115,6 @@ class routingTable(object):
             print('Warning HandlePing has not received PING message')
             return
         self.updatePeer(GUID=pingMsg[SEND_GUID], IPAddr=pingMsg[SEND_IP])
-        print('Pong Received!')
 
     def handlePong(self, pongMsg):
         # Handle incoming Pong
@@ -124,7 +125,6 @@ class routingTable(object):
         self.mutexPP.acquire()
         self.recvPong.append(pongMsg[SEND_GUID])
         self.mutexPP.release()
-        print('Pong Received!')
 
     def sendPing(self, destGUID, destIP):
         pingMsg = {
@@ -138,7 +138,6 @@ class routingTable(object):
         self.mutexPP.acquire()
         self.sentPing.append(destGUID)
         self.mutexPP.release()
-        print('Ping Sent!')
 
     def neighbours(self):
         self.mutex.acquire()
@@ -187,6 +186,7 @@ class routingTable(object):
 
 
             nbr = self.neighbours2()
+            print(nbr)
             for (IPAddr, guid) in nbr:
                 self.sendPing(guid, IPAddr)
 

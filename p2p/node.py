@@ -31,8 +31,6 @@ logger.addHandler(fh)
 class Node(object):
 
     def __init__(self, isBootstrap=False):
-
-        self.routTab = routingTable(isBootstrap)
         self.fileSys = fileSystem()
 
         # Handle the case of bootstrapping node
@@ -44,6 +42,11 @@ class Node(object):
         else:
             self.isJoined = False
             self.GUID = None
+        
+        if self.isBootstrap = isBootstrap:
+            self.routTab = routingTable(isBootstrap, self.GUID)
+        else:
+            self.routTab = routingTable(isBootstrap)
 
         # Permanent socket for the APP
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -782,7 +785,7 @@ def parseCmds(cmd, peer):
 if __name__ == '__main__':
 
     # Starting up the peer
-    peer = Node(True)
+    peer = Node()
     peer.run()
 
     while True:
