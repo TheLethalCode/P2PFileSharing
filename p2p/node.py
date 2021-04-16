@@ -43,10 +43,10 @@ class Node(object):
             self.isJoined = False
             self.GUID = None
         
-        if self.isBootstrap = isBootstrap:
+        if self.isBootstrap:
             self.routTab = routingTable(isBootstrap, self.GUID)
         else:
-            self.routTab = routingTable(isBootstrap)
+            self.routTab = routingTable(isBootstrap, '0')
 
         # Permanent socket for the APP
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -105,8 +105,11 @@ class Node(object):
         fileName = os.path.join(STATE_PATH, STATE_QUERY_RES)
         
         # Maintain the limit
-        with open(fileName, 'r+') as save:
-            buff = deque(save, maxlen=QUERY_QUEUE)
+        try:
+            with open(fileName, 'r+') as save:
+                buff = deque(save, maxlen=QUERY_QUEUE)
+        except FileNotFoundError:
+            buff = deque([], maxlen=QUERY_QUEUE)
         buff.append('{}\n'.format(qId))
         
         # Write it out
@@ -140,8 +143,11 @@ class Node(object):
         fileName = os.path.join(STATE_PATH, STATE_REP_QUER)
         
         # Maintain the limit
-        with open(fileName, 'r+') as save:
-            buff = deque(save, maxlen=REP_QUERY_CACHE)
+        try:
+            with open(fileName, 'r+') as save:
+                buff = deque(save, maxlen=REP_QUERY_CACHE)
+        except FileNotFoundError:
+            buff = deque([], maxlen=REP_QUERY_CACHE)
         buff.append('{}\n'.format(qId))
         
         # Write it out
@@ -785,7 +791,7 @@ def parseCmds(cmd, peer):
 if __name__ == '__main__':
 
     # Starting up the peer
-    peer = Node()
+    peer = Node(True)
     peer.run()
 
     while True:
